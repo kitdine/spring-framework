@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,15 +26,16 @@ import javax.persistence.spi.ClassTransformer;
 import javax.persistence.spi.PersistenceUnitTransactionType;
 import javax.sql.DataSource;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 
 /**
  * Spring's base implementation of the JPA
  * {@link javax.persistence.spi.PersistenceUnitInfo} interface,
- * used to bootstrap an EntityManagerFactory in a container.
+ * used to bootstrap an {@code EntityManagerFactory} in a container.
  *
  * <p>This implementation is largely a JavaBean, offering mutators
- * for all standard PersistenceUnitInfo properties.
+ * for all standard {@code PersistenceUnitInfo} properties.
  *
  * @author Rod Johnson
  * @author Juergen Hoeller
@@ -53,13 +54,15 @@ public class MutablePersistenceUnitInfo implements SmartPersistenceUnitInfo {
 
 	private DataSource jtaDataSource;
 
-	private List<String> mappingFileNames = new LinkedList<String>();
+	private final List<String> mappingFileNames = new LinkedList<>();
 
-	private List<URL> jarFileUrls = new LinkedList<URL>();
+	private List<URL> jarFileUrls = new LinkedList<>();
 
 	private URL persistenceUnitRootUrl;
 
-	private List<String> managedClassNames = new LinkedList<String>();
+	private final List<String> managedClassNames = new LinkedList<>();
+
+	private final List<String> managedPackages = new LinkedList<>();
 
 	private boolean excludeUnlistedClasses = false;
 
@@ -112,6 +115,7 @@ public class MutablePersistenceUnitInfo implements SmartPersistenceUnitInfo {
 	}
 
 	@Override
+	@Nullable
 	public DataSource getJtaDataSource() {
 		return this.jtaDataSource;
 	}
@@ -121,6 +125,7 @@ public class MutablePersistenceUnitInfo implements SmartPersistenceUnitInfo {
 	}
 
 	@Override
+	@Nullable
 	public DataSource getNonJtaDataSource() {
 		return this.nonJtaDataSource;
 	}
@@ -143,15 +148,21 @@ public class MutablePersistenceUnitInfo implements SmartPersistenceUnitInfo {
 		return this.jarFileUrls;
 	}
 
-	public void setPersistenceUnitRootUrl(URL persistenceUnitRootUrl) {
+	public void setPersistenceUnitRootUrl(@Nullable URL persistenceUnitRootUrl) {
 		this.persistenceUnitRootUrl = persistenceUnitRootUrl;
 	}
 
 	@Override
+	@Nullable
 	public URL getPersistenceUnitRootUrl() {
 		return this.persistenceUnitRootUrl;
 	}
 
+	/**
+	 * Add a managed class name to the persistence provider's metadata.
+	 * @see javax.persistence.spi.PersistenceUnitInfo#getManagedClassNames()
+	 * @see #addManagedPackage
+	 */
 	public void addManagedClassName(String managedClassName) {
 		this.managedClassNames.add(managedClassName);
 	}
@@ -159,6 +170,24 @@ public class MutablePersistenceUnitInfo implements SmartPersistenceUnitInfo {
 	@Override
 	public List<String> getManagedClassNames() {
 		return this.managedClassNames;
+	}
+
+	/**
+	 * Add a managed package to the persistence provider's metadata.
+	 * <p>Note: This refers to annotated {@code package-info.java} files. It does
+	 * <i>not</i> trigger entity scanning in the specified package; this is
+	 * rather the job of {@link DefaultPersistenceUnitManager#setPackagesToScan}.
+	 * @since 4.1
+	 * @see SmartPersistenceUnitInfo#getManagedPackages()
+	 * @see #addManagedClassName
+	 */
+	public void addManagedPackage(String packageName) {
+		this.managedPackages.add(packageName);
+	}
+
+	@Override
+	public List<String> getManagedPackages() {
+		return this.managedPackages;
 	}
 
 	public void setExcludeUnlistedClasses(boolean excludeUnlistedClasses) {
@@ -218,6 +247,7 @@ public class MutablePersistenceUnitInfo implements SmartPersistenceUnitInfo {
 		this.persistenceProviderPackageName = persistenceProviderPackageName;
 	}
 
+	@Nullable
 	public String getPersistenceProviderPackageName() {
 		return this.persistenceProviderPackageName;
 	}
@@ -228,6 +258,7 @@ public class MutablePersistenceUnitInfo implements SmartPersistenceUnitInfo {
 	 * @see org.springframework.util.ClassUtils#getDefaultClassLoader()
 	 */
 	@Override
+	@Nullable
 	public ClassLoader getClassLoader() {
 		return ClassUtils.getDefaultClassLoader();
 	}
@@ -251,13 +282,8 @@ public class MutablePersistenceUnitInfo implements SmartPersistenceUnitInfo {
 
 	@Override
 	public String toString() {
-		StringBuilder builder = new StringBuilder();
-		builder.append("PersistenceUnitInfo: name '");
-		builder.append(this.persistenceUnitName);
-		builder.append("', root URL [");
-		builder.append(this.persistenceUnitRootUrl);
-		builder.append("]");
-		return builder.toString();
+		return "PersistenceUnitInfo: name '" + this.persistenceUnitName +
+				"', root URL [" + this.persistenceUnitRootUrl + "]";
 	}
 
 }

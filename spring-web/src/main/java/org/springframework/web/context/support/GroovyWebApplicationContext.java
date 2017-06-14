@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,10 +28,11 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.groovy.GroovyBeanDefinitionReader;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.lang.Nullable;
 
 /**
- * {@link org.springframework.web.context.WebApplicationContext} implementation
- * which takes its configuration from Groovy bean definition scripts, understood by
+ * {@link org.springframework.web.context.WebApplicationContext} implementation which takes
+ * its configuration from Groovy bean definition scripts and/or XML files, as understood by
  * an {@link org.springframework.beans.factory.groovy.GroovyBeanDefinitionReader}.
  * This is essentially the equivalent of
  * {@link org.springframework.context.support.GenericGroovyApplicationContext}
@@ -46,7 +47,8 @@ import org.springframework.beans.factory.support.DefaultListableBeanFactory;
  * init-param of {@link org.springframework.web.servlet.FrameworkServlet}. Config locations
  * can either denote concrete files like "/WEB-INF/context.groovy" or Ant-style patterns
  * like "/WEB-INF/*-context.groovy" (see {@link org.springframework.util.PathMatcher}
- * javadoc for pattern details).
+ * javadoc for pattern details). Note that ".xml" files will be parsed as XML content;
+ * all other kinds of resources will be parsed as Groovy scripts.
  *
  * <p>Note: In case of multiple config locations, later bean definitions will
  * override ones defined in earlier loaded files. This can be leveraged to
@@ -119,7 +121,7 @@ public class GroovyWebApplicationContext extends AbstractRefreshableWebApplicati
 	 * therefore this method is just supposed to load and/or register bean definitions.
 	 * <p>Delegates to a ResourcePatternResolver for resolving location patterns
 	 * into Resource instances.
-	 * @throws IOException if the required Groovy script isn't found
+	 * @throws IOException if the required Groovy script or XML file isn't found
 	 * @see #refreshBeanFactory
 	 * @see #getConfigLocations
 	 * @see #getResources
@@ -168,6 +170,7 @@ public class GroovyWebApplicationContext extends AbstractRefreshableWebApplicati
 		this.metaClass.setProperty(this, property, newValue);
 	}
 
+	@Nullable
 	public Object getProperty(String property) {
 		if (containsBean(property)) {
 			return getBean(property);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -170,7 +170,7 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 		// Build JobDetail instance.
 		JobDetailImpl jdi = new JobDetailImpl();
 		jdi.setName(name);
-		jdi.setGroup(group);
+		jdi.setGroup(this.group);
 		jdi.setJobClass((Class) jobClass);
 		jdi.setDurability(true);
 		jdi.getJobDataMap().put("methodInvoker", this);

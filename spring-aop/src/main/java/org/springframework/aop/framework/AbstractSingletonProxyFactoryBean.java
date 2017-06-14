@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ public abstract class AbstractSingletonProxyFactoryBean extends ProxyConfig
 	 * @see org.springframework.aop.target.SingletonTargetSource
 	 * @see org.springframework.aop.target.LazyInitTargetSource
 	 * @see org.springframework.aop.target.PrototypeTargetSource
-	 * @see org.springframework.aop.target.CommonsPoolTargetSource
+	 * @see org.springframework.aop.target.CommonsPool2TargetSource
 	 */
 	public void setTarget(Object target) {
 		this.target = target;
@@ -169,9 +169,13 @@ public abstract class AbstractSingletonProxyFactoryBean extends ProxyConfig
 		}
 		else if (!isProxyTargetClass()) {
 			// Rely on AOP infrastructure to tell us what interfaces to proxy.
-			proxyFactory.setInterfaces(
-					ClassUtils.getAllInterfacesForClass(targetSource.getTargetClass(), this.proxyClassLoader));
+			Class<?> targetClass = targetSource.getTargetClass();
+			if (targetClass != null) {
+				proxyFactory.setInterfaces(ClassUtils.getAllInterfacesForClass(targetClass, this.proxyClassLoader));
+			}
 		}
+
+		postProcessProxyFactory(proxyFactory);
 
 		this.proxy = proxyFactory.getProxy(this.proxyClassLoader);
 	}
@@ -189,6 +193,15 @@ public abstract class AbstractSingletonProxyFactoryBean extends ProxyConfig
 		else {
 			return new SingletonTargetSource(target);
 		}
+	}
+
+	/**
+	 * A hook for subclasses to post-process the {@link ProxyFactory}
+	 * before creating the proxy instance with it.
+	 * @param proxyFactory the AOP ProxyFactory about to be used
+	 * @since 4.2
+	 */
+	protected void postProcessProxyFactory(ProxyFactory proxyFactory) {
 	}
 
 

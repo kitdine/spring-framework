@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.test.web.servlet;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.springframework.lang.Nullable;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.util.Assert;
 import org.springframework.web.servlet.FlashMap;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
@@ -49,7 +50,7 @@ class DefaultMvcResult implements MvcResult {
 
 	private Exception resolvedException;
 
-	private final AtomicReference<Object> asyncResult = new AtomicReference<Object>(RESULT_NONE);
+	private final AtomicReference<Object> asyncResult = new AtomicReference<>(RESULT_NONE);
 
 
 	/**
@@ -60,14 +61,19 @@ class DefaultMvcResult implements MvcResult {
 		this.mockResponse = response;
 	}
 
-	@Override
-	public MockHttpServletResponse getResponse() {
-		return mockResponse;
-	}
 
 	@Override
 	public MockHttpServletRequest getRequest() {
-		return mockRequest;
+		return this.mockRequest;
+	}
+
+	@Override
+	public MockHttpServletResponse getResponse() {
+		return this.mockResponse;
+	}
+
+	public void setHandler(@Nullable Object handler) {
+		this.handler = handler;
 	}
 
 	@Override
@@ -75,8 +81,8 @@ class DefaultMvcResult implements MvcResult {
 		return this.handler;
 	}
 
-	public void setHandler(Object handler) {
-		this.handler = handler;
+	public void setInterceptors(@Nullable HandlerInterceptor... interceptors) {
+		this.interceptors = interceptors;
 	}
 
 	@Override
@@ -84,8 +90,8 @@ class DefaultMvcResult implements MvcResult {
 		return this.interceptors;
 	}
 
-	public void setInterceptors(HandlerInterceptor[] interceptors) {
-		this.interceptors = interceptors;
+	public void setResolvedException(Exception resolvedException) {
+		this.resolvedException = resolvedException;
 	}
 
 	@Override
@@ -93,8 +99,8 @@ class DefaultMvcResult implements MvcResult {
 		return this.resolvedException;
 	}
 
-	public void setResolvedException(Exception resolvedException) {
-		this.resolvedException = resolvedException;
+	public void setModelAndView(@Nullable ModelAndView mav) {
+		this.modelAndView = mav;
 	}
 
 	@Override
@@ -102,13 +108,9 @@ class DefaultMvcResult implements MvcResult {
 		return this.modelAndView;
 	}
 
-	public void setModelAndView(ModelAndView mav) {
-		this.modelAndView = mav;
-	}
-
 	@Override
 	public FlashMap getFlashMap() {
-		return RequestContextUtils.getOutputFlashMap(mockRequest);
+		return RequestContextUtils.getOutputFlashMap(this.mockRequest);
 	}
 
 	public void setAsyncResult(Object asyncResult) {
@@ -122,7 +124,6 @@ class DefaultMvcResult implements MvcResult {
 
 	@Override
 	public Object getAsyncResult(long timeToWait) {
-
 		if (this.mockRequest.getAsyncContext() != null) {
 			timeToWait = (timeToWait == -1 ? this.mockRequest.getAsyncContext().getTimeout() : timeToWait);
 		}
@@ -131,7 +132,7 @@ class DefaultMvcResult implements MvcResult {
 			long endTime = System.currentTimeMillis() + timeToWait;
 			while (System.currentTimeMillis() < endTime && this.asyncResult.get() == RESULT_NONE) {
 				try {
-					Thread.sleep(200);
+					Thread.sleep(100);
 				}
 				catch (InterruptedException ex) {
 					throw new IllegalStateException("Interrupted while waiting for " +
@@ -140,11 +141,12 @@ class DefaultMvcResult implements MvcResult {
 			}
 		}
 
-		Assert.state(this.asyncResult.get() != RESULT_NONE,
-				"Async result for handler [" + this.handler + "] " +
-						"was not set during the specified timeToWait=" + timeToWait);
-
-		return this.asyncResult.get();
+		Object result = this.asyncResult.get();
+		if (result == RESULT_NONE) {
+			throw new IllegalStateException("Async result for handler [" + this.handler + "] " +
+					"was not set during the specified timeToWait=" + timeToWait);
+		}
+		return result;
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,8 @@ import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.FactoryBeanNotInitializedException;
 import org.springframework.beans.factory.ListableBeanFactory;
-import org.springframework.core.OrderComparator;
+import org.springframework.core.annotation.AnnotationAwareOrderComparator;
+import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
 
@@ -154,7 +155,7 @@ public class ProxyFactoryBean extends ProxyCreatorSupport
 	 * @see org.aopalliance.aop.Advice
 	 * @see org.springframework.aop.target.SingletonTargetSource
 	 */
-	public void setInterceptorNames(String[] interceptorNames) {
+	public void setInterceptorNames(String... interceptorNames) {
 		this.interceptorNames = interceptorNames;
 	}
 
@@ -213,7 +214,7 @@ public class ProxyFactoryBean extends ProxyCreatorSupport
 	 * containing BeanFactory for loading all bean classes. This can be
 	 * overridden here for specific proxies.
 	 */
-	public void setProxyClassLoader(ClassLoader classLoader) {
+	public void setProxyClassLoader(@Nullable ClassLoader classLoader) {
 		this.proxyClassLoader = classLoader;
 		this.classLoaderConfigured = (classLoader != null);
 	}
@@ -344,8 +345,10 @@ public class ProxyFactoryBean extends ProxyCreatorSupport
 		copy.copyConfigurationFrom(this, targetSource, freshAdvisorChain());
 		if (this.autodetectInterfaces && getProxiedInterfaces().length == 0 && !isProxyTargetClass()) {
 			// Rely on AOP infrastructure to tell us what interfaces to proxy.
-			copy.setInterfaces(
-					ClassUtils.getAllInterfacesForClass(targetSource.getTargetClass(), this.proxyClassLoader));
+			Class<?> targetClass = targetSource.getTargetClass();
+			if (targetClass != null) {
+				copy.setInterfaces(ClassUtils.getAllInterfacesForClass(targetClass, this.proxyClassLoader));
+			}
 		}
 		copy.setFrozen(this.freezeProxy);
 
@@ -414,7 +417,7 @@ public class ProxyFactoryBean extends ProxyCreatorSupport
 	}
 
 	/**
-	 * Create the advisor (interceptor) chain. Aadvisors that are sourced
+	 * Create the advisor (interceptor) chain. Advisors that are sourced
 	 * from a BeanFactory will be refreshed each time a new prototype instance
 	 * is added. Interceptors added programmatically through the factory API
 	 * are unaffected by such changes.
@@ -480,7 +483,7 @@ public class ProxyFactoryBean extends ProxyCreatorSupport
 	 */
 	private List<Advisor> freshAdvisorChain() {
 		Advisor[] advisors = getAdvisors();
-		List<Advisor> freshAdvisors = new ArrayList<Advisor>(advisors.length);
+		List<Advisor> freshAdvisors = new ArrayList<>(advisors.length);
 		for (Advisor advisor : advisors) {
 			if (advisor instanceof PrototypePlaceholderAdvisor) {
 				PrototypePlaceholderAdvisor pa = (PrototypePlaceholderAdvisor) advisor;
@@ -513,8 +516,8 @@ public class ProxyFactoryBean extends ProxyCreatorSupport
 				BeanFactoryUtils.beanNamesForTypeIncludingAncestors(beanFactory, Advisor.class);
 		String[] globalInterceptorNames =
 				BeanFactoryUtils.beanNamesForTypeIncludingAncestors(beanFactory, Interceptor.class);
-		List<Object> beans = new ArrayList<Object>(globalAdvisorNames.length + globalInterceptorNames.length);
-		Map<Object, String> names = new HashMap<Object, String>(beans.size());
+		List<Object> beans = new ArrayList<>(globalAdvisorNames.length + globalInterceptorNames.length);
+		Map<Object, String> names = new HashMap<>(beans.size());
 		for (String name : globalAdvisorNames) {
 			Object bean = beanFactory.getBean(name);
 			beans.add(bean);
@@ -525,7 +528,7 @@ public class ProxyFactoryBean extends ProxyCreatorSupport
 			beans.add(bean);
 			names.put(bean, name);
 		}
-		OrderComparator.sort(beans);
+		AnnotationAwareOrderComparator.sort(beans);
 		for (Object bean : beans) {
 			String name = names.get(bean);
 			if (name.startsWith(prefix)) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,8 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.SqlParameter;
+import org.springframework.lang.Nullable;
+import org.springframework.util.Assert;
 
 /**
  * An "RDBMS operation" is a multi-threaded, reusable object representing a query,
@@ -74,14 +76,14 @@ public abstract class RdbmsOperation implements InitializingBean {
 
 	private String sql;
 
-	private final List<SqlParameter> declaredParameters = new LinkedList<SqlParameter>();
+	private final List<SqlParameter> declaredParameters = new LinkedList<>();
 
 	/**
 	 * Has this operation been compiled? Compilation means at
 	 * least checking that a DataSource and sql have been provided,
 	 * but subclasses may also implement their own custom validation.
 	 */
-	private boolean compiled;
+	private volatile boolean compiled;
 
 
 	/**
@@ -91,9 +93,6 @@ public abstract class RdbmsOperation implements InitializingBean {
 	 * apply to multiple RdbmsOperation objects.
 	 */
 	public void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
-		if (jdbcTemplate == null) {
-			throw new IllegalArgumentException("jdbcTemplate must not be null");
-		}
 		this.jdbcTemplate = jdbcTemplate;
 	}
 
@@ -210,7 +209,7 @@ public abstract class RdbmsOperation implements InitializingBean {
 	 * Set the column names of the auto-generated keys.
 	 * @see java.sql.Connection#prepareStatement(String, String[])
 	 */
-	public void setGeneratedKeysColumnNames(String[] names) {
+	public void setGeneratedKeysColumnNames(String... names) {
 		if (isCompiled()) {
 			throw new InvalidDataAccessApiUsageException(
 					"The column names for the generated keys must be set before the operation is compiled");
@@ -221,6 +220,7 @@ public abstract class RdbmsOperation implements InitializingBean {
 	/**
 	 * Return the column names of the auto generated keys.
 	 */
+	@Nullable
 	public String[] getGeneratedKeysColumnNames() {
 		return this.generatedKeysColumnNames;
 	}
@@ -233,12 +233,23 @@ public abstract class RdbmsOperation implements InitializingBean {
 	}
 
 	/**
-	 * Subclasses can override this to supply dynamic SQL if they wish,
-	 * but SQL is normally set by calling the setSql() method
-	 * or in a subclass constructor.
+	 * Subclasses can override this to supply dynamic SQL if they wish, but SQL is
+	 * normally set by calling the {@link #setSql} method or in a subclass constructor.
 	 */
+	@Nullable
 	public String getSql() {
 		return this.sql;
+	}
+
+	/**
+	 * Resolve the configured SQL for actual use.
+	 * @return the SQL (never {@code null})
+	 * @since 5.0
+	 */
+	protected String resolveSql() {
+		String sql = getSql();
+		Assert.state(sql != null, "No SQL set");
+		return sql;
 	}
 
 	/**
@@ -250,7 +261,7 @@ public abstract class RdbmsOperation implements InitializingBean {
 	 * {@code java.sql.Types} class
 	 * @throws InvalidDataAccessApiUsageException if the operation is already compiled
 	 */
-	public void setTypes(int[] types) throws InvalidDataAccessApiUsageException {
+	public void setTypes(@Nullable int[] types) throws InvalidDataAccessApiUsageException {
 		if (isCompiled()) {
 			throw new InvalidDataAccessApiUsageException("Cannot add parameters once query is compiled");
 		}
@@ -287,7 +298,7 @@ public abstract class RdbmsOperation implements InitializingBean {
 	 * @param parameters Array containing the declared {@link SqlParameter} objects
 	 * @see #declaredParameters
 	 */
-	public void setParameters(SqlParameter[] parameters) {
+	public void setParameters(SqlParameter... parameters) {
 		if (isCompiled()) {
 			throw new InvalidDataAccessApiUsageException("Cannot add parameters once the query is compiled");
 		}
@@ -350,7 +361,7 @@ public abstract class RdbmsOperation implements InitializingBean {
 	 * Is this operation "compiled"? Compilation, as in JDO,
 	 * means that the operation is fully configured, and ready to use.
 	 * The exact meaning of compilation will vary between subclasses.
-	 * @return whether this operation is compiled, and ready to use.
+	 * @return whether this operation is compiled and ready to use
 	 */
 	public boolean isCompiled() {
 		return this.compiled;
@@ -376,7 +387,7 @@ public abstract class RdbmsOperation implements InitializingBean {
 	 * @param parameters parameters supplied (may be {@code null})
 	 * @throws InvalidDataAccessApiUsageException if the parameters are invalid
 	 */
-	protected void validateParameters(Object[] parameters) throws InvalidDataAccessApiUsageException {
+	protected void validateParameters(@Nullable Object[] parameters) throws InvalidDataAccessApiUsageException {
 		checkCompiled();
 		int declaredInParameters = 0;
 		for (SqlParameter param : this.declaredParameters) {
@@ -399,7 +410,7 @@ public abstract class RdbmsOperation implements InitializingBean {
 	 * @param parameters parameter Map supplied. May be {@code null}.
 	 * @throws InvalidDataAccessApiUsageException if the parameters are invalid
 	 */
-	protected void validateNamedParameters(Map<String, ?> parameters) throws InvalidDataAccessApiUsageException {
+	protected void validateNamedParameters(@Nullable Map<String, ?> parameters) throws InvalidDataAccessApiUsageException {
 		checkCompiled();
 		Map<String, ?> paramsToUse = (parameters != null ? parameters : Collections.<String, Object> emptyMap());
 		int declaredInParameters = 0;

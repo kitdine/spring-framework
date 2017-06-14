@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import java.util.Map;
 
 import org.springframework.beans.BeanMetadataElement;
 import org.springframework.beans.Mergeable;
+import org.springframework.lang.Nullable;
 
 /**
  * Tag collection class used to hold managed Map values, which may
@@ -54,7 +55,7 @@ public class ManagedMap<K, V> extends LinkedHashMap<K, V> implements Mergeable, 
 	 * Set the configuration source {@code Object} for this metadata element.
 	 * <p>The exact type of the object will depend on the configuration mechanism used.
 	 */
-	public void setSource(Object source) {
+	public void setSource(@Nullable Object source) {
 		this.source = source;
 	}
 
@@ -106,7 +107,7 @@ public class ManagedMap<K, V> extends LinkedHashMap<K, V> implements Mergeable, 
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public Object merge(Object parent) {
+	public Object merge(@Nullable Object parent) {
 		if (!this.mergeEnabled) {
 			throw new IllegalStateException("Not allowed to merge when the 'mergeEnabled' property is set to 'false'");
 		}
@@ -116,7 +117,7 @@ public class ManagedMap<K, V> extends LinkedHashMap<K, V> implements Mergeable, 
 		if (!(parent instanceof Map)) {
 			throw new IllegalArgumentException("Cannot merge with object of type [" + parent.getClass() + "]");
 		}
-		Map<K, V> merged = new ManagedMap<K, V>();
+		Map<K, V> merged = new ManagedMap<>();
 		merged.putAll((Map<K, V>) parent);
 		merged.putAll(this);
 		return merged;

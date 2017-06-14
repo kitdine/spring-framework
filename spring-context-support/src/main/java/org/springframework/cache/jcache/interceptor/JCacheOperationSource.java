@@ -18,7 +18,7 @@ package org.springframework.cache.jcache.interceptor;
 
 import java.lang.reflect.Method;
 
-import org.springframework.cache.jcache.model.JCacheOperation;
+import org.springframework.lang.Nullable;
 
 /**
  * Interface used by {@link JCacheInterceptor}. Implementations know how to source
@@ -39,6 +39,7 @@ public interface JCacheOperationSource {
 	 * the declaring class of the method must be used)
 	 * @return the cache operation for this method, or {@code null} if none found
 	 */
-	JCacheOperation<?> getCacheOperation(Method method, Class<?> targetClass);
+	@Nullable
+	JCacheOperation<?> getCacheOperation(Method method, @Nullable Class<?> targetClass);
 
 }

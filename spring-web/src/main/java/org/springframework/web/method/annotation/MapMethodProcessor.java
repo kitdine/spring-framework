@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2014 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.springframework.web.method.annotation;
 import java.util.Map;
 
 import org.springframework.core.MethodParameter;
+import org.springframework.lang.Nullable;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
@@ -44,10 +45,8 @@ public class MapMethodProcessor implements HandlerMethodArgumentResolver, Handle
 	}
 
 	@Override
-	public Object resolveArgument(
-			MethodParameter parameter, ModelAndViewContainer mavContainer,
-			NativeWebRequest webRequest, WebDataBinderFactory binderFactory)
-			throws Exception {
+	public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
+			NativeWebRequest webRequest, WebDataBinderFactory binderFactory) throws Exception {
 
 		return mavContainer.getModel();
 	}
@@ -59,10 +58,8 @@ public class MapMethodProcessor implements HandlerMethodArgumentResolver, Handle
 
 	@Override
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public void handleReturnValue(
-			Object returnValue, MethodParameter returnType,
-			ModelAndViewContainer mavContainer, NativeWebRequest webRequest)
-			throws Exception {
+	public void handleReturnValue(@Nullable Object returnValue, MethodParameter returnType,
+			ModelAndViewContainer mavContainer, NativeWebRequest webRequest) throws Exception {
 
 		if (returnValue == null) {
 			return;
@@ -76,4 +73,5 @@ public class MapMethodProcessor implements HandlerMethodArgumentResolver, Handle
 					returnType.getParameterType().getName() + " in method: " + returnType.getMethod());
 		}
 	}
+
 }

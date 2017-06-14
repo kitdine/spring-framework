@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
@@ -35,8 +36,7 @@ import org.springframework.util.StringUtils;
  * Helper class for URL path matching. Provides support for URL paths in
  * RequestDispatcher includes and support for consistent URL decoding.
  *
- * <p>Used by {@link org.springframework.web.servlet.handler.AbstractUrlHandlerMapping},
- * {@link org.springframework.web.servlet.mvc.multiaction.AbstractUrlMethodNameResolver}
+ * <p>Used by {@link org.springframework.web.servlet.handler.AbstractUrlHandlerMapping}
  * and {@link org.springframework.web.servlet.support.RequestContext} for path matching
  * and/or URI determination.
  *
@@ -165,6 +165,8 @@ public class UrlPathHelper {
 	 * i.e. the part of the request's URL beyond the part that called the servlet,
 	 * or "" if the whole URL has been used to identify the servlet.
 	 * <p>Detects include request URL if called within a RequestDispatcher include.
+	 * <p>E.g.: servlet mapping = "/*"; request URI = "/test/a" -> "/test/a".
+	 * <p>E.g.: servlet mapping = "/"; request URI = "/test/a" -> "/test/a".
 	 * <p>E.g.: servlet mapping = "/test/*"; request URI = "/test/a" -> "/a".
 	 * <p>E.g.: servlet mapping = "/test"; request URI = "/test" -> "".
 	 * <p>E.g.: servlet mapping = "/*.test"; request URI = "/a.test" -> "".
@@ -174,7 +176,17 @@ public class UrlPathHelper {
 	public String getPathWithinServletMapping(HttpServletRequest request) {
 		String pathWithinApp = getPathWithinApplication(request);
 		String servletPath = getServletPath(request);
-		String path = getRemainingPath(pathWithinApp, servletPath, false);
+		String sanitizedPathWithinApp = getSanitizedPath(pathWithinApp);
+		String path;
+
+		// If the app container sanitized the servletPath, check against the sanitized version
+		if (servletPath.contains(sanitizedPathWithinApp)) {
+			path = getRemainingPath(sanitizedPathWithinApp, servletPath, false);
+		}
+		else {
+			path = getRemainingPath(pathWithinApp, servletPath, false);
+		}
+
 		if (path != null) {
 			// Normal case: URI contains servlet path.
 			return path;
@@ -227,6 +239,7 @@ public class UrlPathHelper {
 	 * context path and the servlet path returned by the HttpServletRequest are
 	 * stripped of semicolon content unlike the requesUri.
 	 */
+	@Nullable
 	private String getRemainingPath(String requestUri, String mapping, boolean ignoreCase) {
 		int index1 = 0;
 		int index2 = 0;
@@ -243,7 +256,7 @@ public class UrlPathHelper {
 			if (c1 == c2) {
 				continue;
 			}
-			if (ignoreCase && (Character.toLowerCase(c1) == Character.toLowerCase(c2))) {
+			else if (ignoreCase && (Character.toLowerCase(c1) == Character.toLowerCase(c2))) {
 				continue;
 			}
 			return null;
@@ -251,13 +264,33 @@ public class UrlPathHelper {
 		if (index2 != mapping.length()) {
 			return null;
 		}
-		if (index1 == requestUri.length()) {
+		else if (index1 == requestUri.length()) {
 			return "";
 		}
 		else if (requestUri.charAt(index1) == ';') {
 			index1 = requestUri.indexOf('/', index1);
 		}
 		return (index1 != -1 ? requestUri.substring(index1) : "");
+	}
+
+	/**
+	 * Sanitize the given path with the following rules:
+	 * <ul>
+	 *     <li>replace all "//" by "/"</li>
+	 * </ul>
+	 */
+	private String getSanitizedPath(final String path) {
+		String sanitized = path;
+		while (true) {
+			int index = sanitized.indexOf("//");
+			if (index < 0) {
+				break;
+			}
+			else {
+				sanitized = sanitized.substring(0, index) + sanitized.substring(index + 1);
+			}
+		}
+		return sanitized;
 	}
 
 	/**
@@ -389,6 +422,7 @@ public class UrlPathHelper {
 	private String decodeAndCleanUriString(HttpServletRequest request, String uri) {
 		uri = removeSemicolonContent(uri);
 		uri = decodeRequestString(request, uri);
+		uri = getSanitizedPath(uri);
 		return uri;
 	}
 
@@ -452,8 +486,8 @@ public class UrlPathHelper {
 	 * @return the updated URI string
 	 */
 	public String removeSemicolonContent(String requestUri) {
-		return this.removeSemicolonContent ?
-				removeSemicolonContentInternal(requestUri) : removeJsessionid(requestUri);
+		return (this.removeSemicolonContent ?
+				removeSemicolonContentInternal(requestUri) : removeJsessionid(requestUri));
 	}
 
 	private String removeSemicolonContentInternal(String requestUri) {
@@ -493,7 +527,7 @@ public class UrlPathHelper {
 			return vars;
 		}
 		else {
-			Map<String, String> decodedVars = new LinkedHashMap<String, String>(vars.size());
+			Map<String, String> decodedVars = new LinkedHashMap<>(vars.size());
 			for (Entry<String, String> entry : vars.entrySet()) {
 				decodedVars.put(entry.getKey(), decodeInternal(request, entry.getValue()));
 			}
@@ -517,7 +551,7 @@ public class UrlPathHelper {
 			return vars;
 		}
 		else {
-			MultiValueMap<String, String> decodedVars = new LinkedMultiValueMap	<String, String>(vars.size());
+			MultiValueMap<String, String> decodedVars = new LinkedMultiValueMap<>(vars.size());
 			for (String key : vars.keySet()) {
 				for (String value : vars.get(key)) {
 					decodedVars.add(key, decodeInternal(request, value));

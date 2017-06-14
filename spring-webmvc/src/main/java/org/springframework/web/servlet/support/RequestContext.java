@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import org.springframework.context.NoSuchMessageException;
 import org.springframework.context.i18n.LocaleContext;
 import org.springframework.context.i18n.SimpleTimeZoneAwareLocaleContext;
 import org.springframework.context.i18n.TimeZoneAwareLocaleContext;
+import org.springframework.lang.Nullable;
 import org.springframework.ui.context.Theme;
 import org.springframework.ui.context.ThemeSource;
 import org.springframework.ui.context.support.ResourceBundleThemeSource;
@@ -53,17 +54,18 @@ import org.springframework.web.util.UrlPathHelper;
 import org.springframework.web.util.WebUtils;
 
 /**
- * Context holder for request-specific state, like current web application context, current locale, current theme,
- * and potential binding errors. Provides easy access to localized messages and Errors instances.
+ * Context holder for request-specific state, like current web application context, current locale,
+ * current theme, and potential binding errors. Provides easy access to localized messages and
+ * Errors instances.
  *
- * <p>Suitable for exposition to views, and usage within JSP's "useBean" tag, JSP scriptlets, JSTL EL, Velocity
- * templates, etc. Necessary for views that do not have access to the servlet request, like Velocity templates.
+ * <p>Suitable for exposition to views, and usage within JSP's "useBean" tag, JSP scriptlets, JSTL EL,
+ * etc. Necessary for views that do not have access to the servlet request, like FreeMarker templates.
  *
  * <p>Can be instantiated manually, or automatically exposed to views as model attribute via AbstractView's
  * "requestContextAttribute" property.
  *
- * <p>Will also work outside of DispatcherServlet requests, accessing the root WebApplicationContext and using
- * an appropriate fallback for the locale (the HttpServletRequest's primary locale).
+ * <p>Will also work outside of DispatcherServlet requests, accessing the root WebApplicationContext
+ * and using an appropriate fallback for the locale (the HttpServletRequest's primary locale).
  *
  * @author Juergen Hoeller
  * @author Rossen Stoyanchev
@@ -89,12 +91,6 @@ public class RequestContext {
 	 */
 	public static final String WEB_APPLICATION_CONTEXT_ATTRIBUTE = RequestContext.class.getName() + ".CONTEXT";
 
-	/**
-	 * The name of the bean to use to look up in an implementation of
-	 * {@link RequestDataValueProcessor} has been configured.
-	 */
-	private static final String REQUEST_DATA_VALUE_PROCESSOR_BEAN_NAME = "requestDataValueProcessor";
-
 
 	protected static final boolean jstlPresent = ClassUtils.isPresent("javax.servlet.jsp.jstl.core.Config",
 			RequestContext.class.getClassLoader());
@@ -114,6 +110,8 @@ public class RequestContext {
 	private Theme theme;
 
 	private Boolean defaultHtmlEscape;
+
+	private Boolean responseEncodedHtmlEscape;
 
 	private UrlPathHelper urlPathHelper;
 
@@ -163,7 +161,7 @@ public class RequestContext {
 	 * @see org.springframework.web.context.WebApplicationContext
 	 * @see org.springframework.web.servlet.DispatcherServlet
 	 */
-	public RequestContext(HttpServletRequest request, ServletContext servletContext) {
+	public RequestContext(HttpServletRequest request, @Nullable ServletContext servletContext) {
 		initContext(request, null, servletContext, null);
 	}
 
@@ -178,7 +176,7 @@ public class RequestContext {
 	 * @see org.springframework.web.servlet.DispatcherServlet
 	 * @see #RequestContext(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, javax.servlet.ServletContext, Map)
 	 */
-	public RequestContext(HttpServletRequest request, Map<String, Object> model) {
+	public RequestContext(HttpServletRequest request, @Nullable Map<String, Object> model) {
 		initContext(request, null, null, model);
 	}
 
@@ -196,8 +194,8 @@ public class RequestContext {
 	 * @see org.springframework.web.context.WebApplicationContext
 	 * @see org.springframework.web.servlet.DispatcherServlet
 	 */
-	public RequestContext(HttpServletRequest request, HttpServletResponse response, ServletContext servletContext,
-			Map<String, Object> model) {
+	public RequestContext(HttpServletRequest request, HttpServletResponse response, @Nullable ServletContext servletContext,
+			@Nullable Map<String, Object> model) {
 
 		initContext(request, response, servletContext, model);
 	}
@@ -223,8 +221,8 @@ public class RequestContext {
 	 * @see org.springframework.web.servlet.DispatcherServlet#LOCALE_RESOLVER_ATTRIBUTE
 	 * @see org.springframework.web.servlet.DispatcherServlet#THEME_RESOLVER_ATTRIBUTE
 	 */
-	protected void initContext(HttpServletRequest request, HttpServletResponse response, ServletContext servletContext,
-			Map<String, Object> model) {
+	protected void initContext(HttpServletRequest request, @Nullable HttpServletResponse response, @Nullable ServletContext servletContext,
+			@Nullable Map<String, Object> model) {
 
 		this.request = request;
 		this.response = response;
@@ -234,7 +232,11 @@ public class RequestContext {
 		// ServletContext needs to be specified to be able to fall back to the root context!
 		this.webApplicationContext = (WebApplicationContext) request.getAttribute(WEB_APPLICATION_CONTEXT_ATTRIBUTE);
 		if (this.webApplicationContext == null) {
-			this.webApplicationContext = RequestContextUtils.getWebApplicationContext(request, servletContext);
+			this.webApplicationContext = RequestContextUtils.findWebApplicationContext(request, servletContext);
+			if (this.webApplicationContext == null) {
+				throw new IllegalStateException("No WebApplicationContext found: not in a DispatcherServlet " +
+						"request and no ContextLoaderListener registered?");
+			}
 		}
 
 		// Determine locale to use for this RequestContext.
@@ -263,11 +265,15 @@ public class RequestContext {
 		// context-param in web.xml, if any.
 		this.defaultHtmlEscape = WebUtils.getDefaultHtmlEscape(this.webApplicationContext.getServletContext());
 
+		// Determine response-encoded HTML escape setting from the "responseEncodedHtmlEscape"
+		// context-param in web.xml, if any.
+		this.responseEncodedHtmlEscape = WebUtils.getResponseEncodedHtmlEscape(this.webApplicationContext.getServletContext());
+
 		this.urlPathHelper = new UrlPathHelper();
 
-		if (this.webApplicationContext.containsBean(REQUEST_DATA_VALUE_PROCESSOR_BEAN_NAME)) {
+		if (this.webApplicationContext.containsBean(RequestContextUtils.REQUEST_DATA_VALUE_PROCESSOR_BEAN_NAME)) {
 			this.requestDataValueProcessor = this.webApplicationContext.getBean(
-					REQUEST_DATA_VALUE_PROCESSOR_BEAN_NAME, RequestDataValueProcessor.class);
+					RequestContextUtils.REQUEST_DATA_VALUE_PROCESSOR_BEAN_NAME, RequestDataValueProcessor.class);
 		}
 	}
 
@@ -294,6 +300,7 @@ public class RequestContext {
 	 * session or application scope; returns {@code null} if not found.
 	 * @return the fallback time zone (or {@code null} if none derivable from the request)
 	 */
+	@Nullable
 	protected TimeZone getFallbackTimeZone() {
 		if (jstlPresent) {
 			TimeZone timeZone = JstlLocaleResolver.getJstlTimeZone(getRequest(), getServletContext());
@@ -332,6 +339,7 @@ public class RequestContext {
 	/**
 	 * Return the underlying ServletContext. Only intended for cooperating classes in this package.
 	 */
+	@Nullable
 	protected final ServletContext getServletContext() {
 		return this.webApplicationContext.getServletContext();
 	}
@@ -354,6 +362,7 @@ public class RequestContext {
 	 * Return the model Map that this RequestContext encapsulates, if any.
 	 * @return the populated model Map, or {@code null} if none available
 	 */
+	@Nullable
 	public final Map<String, Object> getModel() {
 		return this.model;
 	}
@@ -374,6 +383,7 @@ public class RequestContext {
 	 * Also includes a fallback check for JSTL's TimeZone attribute.
 	 * @see RequestContextUtils#getTimeZone
 	 */
+	@Nullable
 	public TimeZone getTimeZone() {
 		return this.timeZone;
 	}
@@ -435,7 +445,7 @@ public class RequestContext {
 	 * @param theme the new theme
 	 * @see ThemeResolver#setThemeName
 	 */
-	public void changeTheme(Theme theme) {
+	public void changeTheme(@Nullable Theme theme) {
 		ThemeResolver themeResolver = RequestContextUtils.getThemeResolver(this.request);
 		if (themeResolver == null) {
 			throw new IllegalStateException("Cannot change theme if no ThemeResolver configured");
@@ -463,7 +473,7 @@ public class RequestContext {
 	/**
 	 * (De)activate default HTML escaping for messages and errors, for the scope of this RequestContext.
 	 * <p>The default is the application-wide setting (the "defaultHtmlEscape" context-param in web.xml).
-	 * @see org.springframework.web.util.WebUtils#isDefaultHtmlEscape
+	 * @see org.springframework.web.util.WebUtils#getDefaultHtmlEscape
 	 */
 	public void setDefaultHtmlEscape(boolean defaultHtmlEscape) {
 		this.defaultHtmlEscape = defaultHtmlEscape;
@@ -480,9 +490,31 @@ public class RequestContext {
 	 * Return the default HTML escape setting, differentiating between no default specified and an explicit value.
 	 * @return whether default HTML escaping is enabled (null = no explicit default)
 	 */
+	@Nullable
 	public Boolean getDefaultHtmlEscape() {
 		return this.defaultHtmlEscape;
 	}
+
+	/**
+	 * Is HTML escaping using the response encoding by default?
+	 * If enabled, only XML markup significant characters will be escaped with UTF-* encodings.
+	 * <p>Falls back to {@code true} in case of no explicit default given, as of Spring 4.2.
+	 * @since 4.1.2
+	 */
+	public boolean isResponseEncodedHtmlEscape() {
+		return (this.responseEncodedHtmlEscape == null || this.responseEncodedHtmlEscape.booleanValue());
+	}
+
+	/**
+	 * Return the default setting about use of response encoding for HTML escape setting,
+	 * differentiating between no default specified and an explicit value.
+	 * @return whether default use of response encoding HTML escaping is enabled (null = no explicit default)
+	 * @since 4.1.2
+	 */
+	public Boolean getResponseEncodedHtmlEscape() {
+		return this.responseEncodedHtmlEscape;
+	}
+
 
 	/**
 	 * Set the UrlPathHelper to use for context path and request URI decoding.
@@ -508,6 +540,7 @@ public class RequestContext {
 	 * WebApplicationContext under the name {@code "requestDataValueProcessor"}.
 	 * Or {@code null} if no matching bean was found.
 	 */
+	@Nullable
 	public RequestDataValueProcessor getRequestDataValueProcessor() {
 		return this.requestDataValueProcessor;
 	}
@@ -613,7 +646,7 @@ public class RequestContext {
 	 * @param defaultMessage String to return if the lookup fails
 	 * @return the message
 	 */
-	public String getMessage(String code, Object[] args, String defaultMessage) {
+	public String getMessage(String code, @Nullable Object[] args, String defaultMessage) {
 		return getMessage(code, args, defaultMessage, isDefaultHtmlEscape());
 	}
 
@@ -624,7 +657,7 @@ public class RequestContext {
 	 * @param defaultMessage String to return if the lookup fails
 	 * @return the message
 	 */
-	public String getMessage(String code, List<?> args, String defaultMessage) {
+	public String getMessage(String code, @Nullable List<?> args, String defaultMessage) {
 		return getMessage(code, (args != null ? args.toArray() : null), defaultMessage, isDefaultHtmlEscape());
 	}
 
@@ -636,7 +669,7 @@ public class RequestContext {
 	 * @param htmlEscape HTML escape the message?
 	 * @return the message
 	 */
-	public String getMessage(String code, Object[] args, String defaultMessage, boolean htmlEscape) {
+	public String getMessage(String code, @Nullable Object[] args, String defaultMessage, boolean htmlEscape) {
 		String msg = this.webApplicationContext.getMessage(code, args, defaultMessage, this.locale);
 		return (htmlEscape ? HtmlUtils.htmlEscape(msg) : msg);
 	}
@@ -658,7 +691,7 @@ public class RequestContext {
 	 * @return the message
 	 * @throws org.springframework.context.NoSuchMessageException if not found
 	 */
-	public String getMessage(String code, Object[] args) throws NoSuchMessageException {
+	public String getMessage(String code, @Nullable Object[] args) throws NoSuchMessageException {
 		return getMessage(code, args, isDefaultHtmlEscape());
 	}
 
@@ -669,7 +702,7 @@ public class RequestContext {
 	 * @return the message
 	 * @throws org.springframework.context.NoSuchMessageException if not found
 	 */
-	public String getMessage(String code, List<?> args) throws NoSuchMessageException {
+	public String getMessage(String code, @Nullable List<?> args) throws NoSuchMessageException {
 		return getMessage(code, (args != null ? args.toArray() : null), isDefaultHtmlEscape());
 	}
 
@@ -681,7 +714,7 @@ public class RequestContext {
 	 * @return the message
 	 * @throws org.springframework.context.NoSuchMessageException if not found
 	 */
-	public String getMessage(String code, Object[] args, boolean htmlEscape) throws NoSuchMessageException {
+	public String getMessage(String code, @Nullable Object[] args, boolean htmlEscape) throws NoSuchMessageException {
 		String msg = this.webApplicationContext.getMessage(code, args, this.locale);
 		return (htmlEscape ? HtmlUtils.htmlEscape(msg) : msg);
 	}
@@ -729,7 +762,7 @@ public class RequestContext {
 	 * @param defaultMessage String to return if the lookup fails
 	 * @return the message
 	 */
-	public String getThemeMessage(String code, Object[] args, String defaultMessage) {
+	public String getThemeMessage(String code, @Nullable Object[] args, String defaultMessage) {
 		return getTheme().getMessageSource().getMessage(code, args, defaultMessage, this.locale);
 	}
 
@@ -742,7 +775,7 @@ public class RequestContext {
 	 * @param defaultMessage String to return if the lookup fails
 	 * @return the message
 	 */
-	public String getThemeMessage(String code, List<?> args, String defaultMessage) {
+	public String getThemeMessage(String code, @Nullable List<?> args, String defaultMessage) {
 		return getTheme().getMessageSource().getMessage(code, (args != null ? args.toArray() : null), defaultMessage,
 				this.locale);
 	}
@@ -768,7 +801,7 @@ public class RequestContext {
 	 * @return the message
 	 * @throws org.springframework.context.NoSuchMessageException if not found
 	 */
-	public String getThemeMessage(String code, Object[] args) throws NoSuchMessageException {
+	public String getThemeMessage(String code, @Nullable Object[] args) throws NoSuchMessageException {
 		return getTheme().getMessageSource().getMessage(code, args, this.locale);
 	}
 
@@ -781,7 +814,7 @@ public class RequestContext {
 	 * @return the message
 	 * @throws org.springframework.context.NoSuchMessageException if not found
 	 */
-	public String getThemeMessage(String code, List<?> args) throws NoSuchMessageException {
+	public String getThemeMessage(String code, @Nullable List<?> args) throws NoSuchMessageException {
 		return getTheme().getMessageSource().getMessage(code, (args != null ? args.toArray() : null), this.locale);
 	}
 
@@ -802,6 +835,7 @@ public class RequestContext {
 	 * @param name name of the bind object
 	 * @return the Errors instance, or {@code null} if not found
 	 */
+	@Nullable
 	public Errors getErrors(String name) {
 		return getErrors(name, isDefaultHtmlEscape());
 	}
@@ -812,9 +846,10 @@ public class RequestContext {
 	 * @param htmlEscape create an Errors instance with automatic HTML escaping?
 	 * @return the Errors instance, or {@code null} if not found
 	 */
+	@Nullable
 	public Errors getErrors(String name, boolean htmlEscape) {
 		if (this.errorsMap == null) {
-			this.errorsMap = new HashMap<String, Errors>();
+			this.errorsMap = new HashMap<>();
 		}
 		Errors errors = this.errorsMap.get(name);
 		boolean put = false;
@@ -844,10 +879,12 @@ public class RequestContext {
 	}
 
 	/**
-	 * Retrieve the model object for the given model name, either from the model or from the request attributes.
+	 * Retrieve the model object for the given model name, either from the model
+	 * or from the request attributes.
 	 * @param modelName the name of the model object
 	 * @return the model object
 	 */
+	@Nullable
 	protected Object getModelObject(String modelName) {
 		if (this.model != null) {
 			return this.model.get(modelName);
@@ -885,7 +922,7 @@ public class RequestContext {
 	 */
 	private static class JstlLocaleResolver {
 
-		public static Locale getJstlLocale(HttpServletRequest request, ServletContext servletContext) {
+		public static Locale getJstlLocale(HttpServletRequest request, @Nullable ServletContext servletContext) {
 			Object localeObject = Config.get(request, Config.FMT_LOCALE);
 			if (localeObject == null) {
 				HttpSession session = request.getSession(false);
@@ -899,7 +936,7 @@ public class RequestContext {
 			return (localeObject instanceof Locale ? (Locale) localeObject : null);
 		}
 
-		public static TimeZone getJstlTimeZone(HttpServletRequest request, ServletContext servletContext) {
+		public static TimeZone getJstlTimeZone(HttpServletRequest request, @Nullable ServletContext servletContext) {
 			Object timeZoneObject = Config.get(request, Config.FMT_TIME_ZONE);
 			if (timeZoneObject == null) {
 				HttpSession session = request.getSession(false);

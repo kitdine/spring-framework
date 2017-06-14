@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.springframework.expression.spel;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,7 @@ import org.springframework.expression.PropertyAccessor;
 import org.springframework.expression.TypeComparator;
 import org.springframework.expression.TypeConverter;
 import org.springframework.expression.TypedValue;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -51,6 +53,15 @@ public class ExpressionState {
 	private final EvaluationContext relatedContext;
 
 	private final TypedValue rootObject;
+
+	// When entering a new scope there is a new base object which should be used
+	// for '#this' references (or to act as a target for unqualified references).
+	// This stack captures those objects at each nested scope level.
+	// For example:
+	// #list1.?[#list2.contains(#this)]
+	// On entering the selection we enter a new scope, and #this is now the
+	// element from list1
+	private Stack<TypedValue> scopeRootObjects;
 
 	private final SpelParserConfiguration configuration;
 
@@ -82,9 +93,12 @@ public class ExpressionState {
 
 	private void ensureVariableScopesInitialized() {
 		if (this.variableScopes == null) {
-			this.variableScopes = new Stack<VariableScope>();
+			this.variableScopes = new Stack<>();
 			// top level empty variable scope
 			this.variableScopes.add(new VariableScope());
+		}
+		if (this.scopeRootObjects == null) {
+			this.scopeRootObjects = new Stack<>();
 		}
 	}
 
@@ -100,14 +114,14 @@ public class ExpressionState {
 
 	public void pushActiveContextObject(TypedValue obj) {
 		if (this.contextObjects == null) {
-			this.contextObjects = new Stack<TypedValue>();
+			this.contextObjects = new Stack<>();
 		}
 		this.contextObjects.push(obj);
 	}
 
 	public void popActiveContextObject() {
 		if (this.contextObjects == null) {
-			this.contextObjects = new Stack<TypedValue>();
+			this.contextObjects = new Stack<>();
 		}
 		this.contextObjects.pop();
 	}
@@ -116,18 +130,20 @@ public class ExpressionState {
 		return this.rootObject;
 	}
 
-	public void setVariable(String name, Object value) {
+	public TypedValue getScopeRootContextObject() {
+		if (this.scopeRootObjects == null || this.scopeRootObjects.isEmpty()) {
+			return this.rootObject;
+		}
+		return this.scopeRootObjects.peek();
+	}
+
+	public void setVariable(String name, @Nullable Object value) {
 		this.relatedContext.setVariable(name, value);
 	}
 
 	public TypedValue lookupVariable(String name) {
 		Object value = this.relatedContext.lookupVariable(name);
-		if (value == null) {
-			return TypedValue.NULL;
-		}
-		else {
-			return new TypedValue(value);
-		}
+		return (value != null ? new TypedValue(value) : TypedValue.NULL);
 	}
 
 	public TypeComparator getTypeComparator() {
@@ -139,14 +155,19 @@ public class ExpressionState {
 	}
 
 	public Object convertValue(Object value, TypeDescriptor targetTypeDescriptor) throws EvaluationException {
-		return this.relatedContext.getTypeConverter().convertValue(value,
+		Object result = this.relatedContext.getTypeConverter().convertValue(value,
 				TypeDescriptor.forObject(value), targetTypeDescriptor);
+		if (result == null) {
+			throw new IllegalStateException("Null conversion result for value [" + value + "]");
+		}
+		return result;
 	}
 
 	public TypeConverter getTypeConverter() {
 		return this.relatedContext.getTypeConverter();
 	}
 
+	@Nullable
 	public Object convertValue(TypedValue value, TypeDescriptor targetTypeDescriptor) throws EvaluationException {
 		Object val = value.getValue();
 		return this.relatedContext.getTypeConverter().convertValue(val, TypeDescriptor.forObject(val), targetTypeDescriptor);
@@ -158,16 +179,25 @@ public class ExpressionState {
 	public void enterScope(Map<String, Object> argMap) {
 		ensureVariableScopesInitialized();
 		this.variableScopes.push(new VariableScope(argMap));
+		this.scopeRootObjects.push(getActiveContextObject());
+	}
+
+	public void enterScope() {
+		ensureVariableScopesInitialized();
+		this.variableScopes.push(new VariableScope(Collections.emptyMap()));
+		this.scopeRootObjects.push(getActiveContextObject());
 	}
 
 	public void enterScope(String name, Object value) {
 		ensureVariableScopesInitialized();
 		this.variableScopes.push(new VariableScope(name, value));
+		this.scopeRootObjects.push(getActiveContextObject());
 	}
 
 	public void exitScope() {
 		ensureVariableScopesInitialized();
 		this.variableScopes.pop();
+		this.scopeRootObjects.pop();
 	}
 
 	public void setLocalVariable(String name, Object value) {
@@ -175,6 +205,7 @@ public class ExpressionState {
 		this.variableScopes.peek().setVariable(name, value);
 	}
 
+	@Nullable
 	public Object lookupLocalVariable(String name) {
 		ensureVariableScopesInitialized();
 		int scopeNumber = this.variableScopes.size() - 1;
@@ -186,7 +217,7 @@ public class ExpressionState {
 		return null;
 	}
 
-	public TypedValue operate(Operation op, Object left, Object right) throws EvaluationException {
+	public TypedValue operate(Operation op, @Nullable Object left, @Nullable Object right) throws EvaluationException {
 		OperatorOverloader overloader = this.relatedContext.getOperatorOverloader();
 		if (overloader.overridesOperation(op, left, right)) {
 			Object returnValue = overloader.operate(op, left, right);
@@ -221,12 +252,12 @@ public class ExpressionState {
 	 */
 	private static class VariableScope {
 
-		private final Map<String, Object> vars = new HashMap<String, Object>();
+		private final Map<String, Object> vars = new HashMap<>();
 
 		public VariableScope() {
 		}
 
-		public VariableScope(Map<String, Object> arguments) {
+		public VariableScope(@Nullable Map<String, Object> arguments) {
 			if (arguments != null) {
 				this.vars.putAll(arguments);
 			}

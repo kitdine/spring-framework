@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import org.aopalliance.intercept.MethodInvocation;
 import org.springframework.aop.ProxyMethodInvocation;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.core.BridgeMethodResolver;
+import org.springframework.lang.Nullable;
 
 /**
  * Spring's implementation of the AOP Alliance
@@ -102,14 +103,14 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 	 * but would complicate the code. And it would work only for static pointcuts.
 	 */
 	protected ReflectiveMethodInvocation(
-			Object proxy, Object target, Method method, Object[] arguments,
-			Class<?> targetClass, List<Object> interceptorsAndDynamicMethodMatchers) {
+			Object proxy, @Nullable Object target, Method method, Object[] arguments,
+			@Nullable Class<?> targetClass, List<Object> interceptorsAndDynamicMethodMatchers) {
 
 		this.proxy = proxy;
 		this.target = target;
 		this.targetClass = targetClass;
 		this.method = BridgeMethodResolver.findBridgedMethod(method);
-		this.arguments = arguments;
+		this.arguments = AopProxyUtils.adaptArgumentsIfNecessary(method, arguments);
 		this.interceptorsAndDynamicMethodMatchers = interceptorsAndDynamicMethodMatchers;
 	}
 
@@ -120,6 +121,7 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 	}
 
 	@Override
+	@Nullable
 	public final Object getThis() {
 		return this.target;
 	}
@@ -145,12 +147,13 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 	}
 
 	@Override
-	public void setArguments(Object[] arguments) {
+	public void setArguments(Object... arguments) {
 		this.arguments = arguments;
 	}
 
 
 	@Override
+	@Nullable
 	public Object proceed() throws Throwable {
 		//	We start with an index of -1 and increment early.
 		if (this.currentInterceptorIndex == this.interceptorsAndDynamicMethodMatchers.size() - 1) {
@@ -186,6 +189,7 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 	 * @return the return value of the joinpoint
 	 * @throws Throwable if invoking the joinpoint resulted in an exception
 	 */
+	@Nullable
 	protected Object invokeJoinpoint() throws Throwable {
 		return AopUtils.invokeJoinpointUsingReflection(this.target, this.method, this.arguments);
 	}
@@ -219,11 +223,11 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 	 * @see java.lang.Object#clone()
 	 */
 	@Override
-	public MethodInvocation invocableClone(Object[] arguments) {
+	public MethodInvocation invocableClone(@Nullable Object... arguments) {
 		// Force initialization of the user attributes Map,
 		// for having a shared Map reference in the clone.
 		if (this.userAttributes == null) {
-			this.userAttributes = new HashMap<String, Object>();
+			this.userAttributes = new HashMap<>();
 		}
 
 		// Create the MethodInvocation clone.
@@ -240,10 +244,10 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 
 
 	@Override
-	public void setUserAttribute(String key, Object value) {
+	public void setUserAttribute(String key, @Nullable Object value) {
 		if (value != null) {
 			if (this.userAttributes == null) {
-				this.userAttributes = new HashMap<String, Object>();
+				this.userAttributes = new HashMap<>();
 			}
 			this.userAttributes.put(key, value);
 		}
@@ -268,7 +272,7 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 	 */
 	public Map<String, Object> getUserAttributes() {
 		if (this.userAttributes == null) {
-			this.userAttributes = new HashMap<String, Object>();
+			this.userAttributes = new HashMap<>();
 		}
 		return this.userAttributes;
 	}

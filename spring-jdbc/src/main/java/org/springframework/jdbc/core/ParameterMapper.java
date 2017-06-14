@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Map;
 
+import org.springframework.lang.Nullable;
+
 /**
  * Implement this interface when parameters need to be customized based
  * on the connection. We might need to do this to make use of proprietary
@@ -30,6 +32,7 @@ import java.util.Map;
  * @see CallableStatementCreatorFactory#newCallableStatementCreator(ParameterMapper)
  * @see org.springframework.jdbc.object.StoredProcedure#execute(ParameterMapper)
  */
+@FunctionalInterface
 public interface ParameterMapper {
 
 	/**
@@ -42,6 +45,7 @@ public interface ParameterMapper {
 	 * parameter values (that is, there's no need to catch SQLException)
 	 * @return Map of input parameters, keyed by name (never {@code null})
 	 */
+	@Nullable
 	Map<String, ?> createMap(Connection con) throws SQLException;
 
 }

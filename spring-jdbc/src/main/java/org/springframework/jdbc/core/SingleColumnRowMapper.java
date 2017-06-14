@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import java.sql.SQLException;
 import org.springframework.dao.TypeMismatchDataAccessException;
 import org.springframework.jdbc.IncorrectResultSetColumnCountException;
 import org.springframework.jdbc.support.JdbcUtils;
+import org.springframework.lang.Nullable;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.NumberUtils;
 
 /**
@@ -41,23 +43,26 @@ import org.springframework.util.NumberUtils;
  */
 public class SingleColumnRowMapper<T> implements RowMapper<T> {
 
-	private Class<T> requiredType;
+	private Class<?> requiredType;
 
 
 	/**
-	 * Create a new SingleColumnRowMapper.
+	 * Create a new {@code SingleColumnRowMapper} for bean-style configuration.
 	 * @see #setRequiredType
 	 */
 	public SingleColumnRowMapper() {
 	}
 
 	/**
-	 * Create a new SingleColumnRowMapper.
+	 * Create a new {@code SingleColumnRowMapper}.
+	 * <p>Consider using the {@link #newInstance} factory method instead,
+	 * which allows for specifying the required type once only.
 	 * @param requiredType the type that each result object is expected to match
 	 */
 	public SingleColumnRowMapper(Class<T> requiredType) {
-		this.requiredType = requiredType;
+		setRequiredType(requiredType);
 	}
+
 
 	/**
 	 * Set the type that each result object is expected to match.
@@ -65,7 +70,7 @@ public class SingleColumnRowMapper<T> implements RowMapper<T> {
 	 * returned by the JDBC driver.
 	 */
 	public void setRequiredType(Class<T> requiredType) {
-		this.requiredType = requiredType;
+		this.requiredType = ClassUtils.resolvePrimitiveIfNecessary(requiredType);
 	}
 
 
@@ -121,7 +126,8 @@ public class SingleColumnRowMapper<T> implements RowMapper<T> {
 	 * @see org.springframework.jdbc.support.JdbcUtils#getResultSetValue(java.sql.ResultSet, int, Class)
 	 * @see #getColumnValue(java.sql.ResultSet, int)
 	 */
-	protected Object getColumnValue(ResultSet rs, int index, Class<?> requiredType) throws SQLException {
+	@Nullable
+	protected Object getColumnValue(ResultSet rs, int index, @Nullable Class<?> requiredType) throws SQLException {
 		if (requiredType != null) {
 			return JdbcUtils.getResultSetValue(rs, index, requiredType);
 		}
@@ -145,6 +151,7 @@ public class SingleColumnRowMapper<T> implements RowMapper<T> {
 	 * @throws SQLException in case of extraction failure
 	 * @see org.springframework.jdbc.support.JdbcUtils#getResultSetValue(java.sql.ResultSet, int)
 	 */
+	@Nullable
 	protected Object getColumnValue(ResultSet rs, int index) throws SQLException {
 		return JdbcUtils.getResultSetValue(rs, index);
 	}
@@ -165,7 +172,7 @@ public class SingleColumnRowMapper<T> implements RowMapper<T> {
 	 */
 	@SuppressWarnings("unchecked")
 	protected Object convertValueToRequiredType(Object value, Class<?> requiredType) {
-		if (String.class.equals(requiredType)) {
+		if (String.class == requiredType) {
 			return value.toString();
 		}
 		else if (Number.class.isAssignableFrom(requiredType)) {
@@ -183,6 +190,17 @@ public class SingleColumnRowMapper<T> implements RowMapper<T> {
 					"Value [" + value + "] is of type [" + value.getClass().getName() +
 					"] and cannot be converted to required type [" + requiredType.getName() + "]");
 		}
+	}
+
+
+	/**
+	 * Static factory method to create a new {@code SingleColumnRowMapper}
+	 * (with the required type specified only once).
+	 * @param requiredType the type that each result object is expected to match
+	 * @since 4.1
+	 */
+	public static <T> SingleColumnRowMapper<T> newInstance(Class<T> requiredType) {
+		return new SingleColumnRowMapper<>(requiredType);
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import org.aspectj.runtime.internal.AroundClosure;
 import org.springframework.aop.ProxyMethodInvocation;
 import org.springframework.core.DefaultParameterNameDiscoverer;
 import org.springframework.core.ParameterNameDiscoverer;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -109,6 +110,7 @@ public class MethodInvocationProceedingJoinPoint implements ProceedingJoinPoint,
 	 * Returns the Spring AOP target. May be {@code null} if there is no target.
 	 */
 	@Override
+	@Nullable
 	public Object getTarget() {
 		return this.methodInvocation.getThis();
 	}
@@ -243,6 +245,7 @@ public class MethodInvocationProceedingJoinPoint implements ProceedingJoinPoint,
 
 		private String toString(boolean includeModifier, boolean includeReturnTypeAndArgs,
 				boolean useLongReturnAndArgumentTypeName, boolean useLongTypeName) {
+
 			StringBuilder sb = new StringBuilder();
 			if (includeModifier) {
 				sb.append(Modifier.toString(getModifiers()));
@@ -262,8 +265,9 @@ public class MethodInvocationProceedingJoinPoint implements ProceedingJoinPoint,
 			return sb.toString();
 		}
 
-		private void appendTypes(StringBuilder sb, Class<?>[] types,
-				boolean includeArgs, boolean useLongReturnAndArgumentTypeName) {
+		private void appendTypes(StringBuilder sb, Class<?>[] types, boolean includeArgs,
+				boolean useLongReturnAndArgumentTypeName) {
+
 			if (includeArgs) {
 				for (int size = types.length, i = 0; i < size; i++) {
 					appendType(sb, types[i], useLongReturnAndArgumentTypeName);

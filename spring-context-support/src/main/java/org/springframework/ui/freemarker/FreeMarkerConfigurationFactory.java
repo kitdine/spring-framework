@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.PropertiesLoaderUtils;
+import org.springframework.lang.Nullable;
 import org.springframework.util.CollectionUtils;
 
 /**
@@ -85,7 +86,7 @@ public class FreeMarkerConfigurationFactory {
 
 	private String defaultEncoding;
 
-	private final List<TemplateLoader> templateLoaders = new ArrayList<TemplateLoader>();
+	private final List<TemplateLoader> templateLoaders = new ArrayList<>();
 
 	private List<TemplateLoader> preTemplateLoaders;
 
@@ -277,7 +278,7 @@ public class FreeMarkerConfigurationFactory {
 			config.setDefaultEncoding(this.defaultEncoding);
 		}
 
-		List<TemplateLoader> templateLoaders = new LinkedList<TemplateLoader>(this.templateLoaders);
+		List<TemplateLoader> templateLoaders = new LinkedList<>(this.templateLoaders);
 
 		// Register template loaders that are supposed to kick in early.
 		if (this.preTemplateLoaders != null) {
@@ -307,8 +308,9 @@ public class FreeMarkerConfigurationFactory {
 	}
 
 	/**
-	 * Return a new Configuration object. Subclasses can override this for
-	 * custom initialization, or for using a mock object for testing.
+	 * Return a new Configuration object. Subclasses can override this for custom
+	 * initialization (e.g. specifying a FreeMarker compatibility level which is a
+	 * new feature in FreeMarker 2.3.21), or for using a mock object for testing.
 	 * <p>Called by {@code createConfiguration()}.
 	 * @return the Configuration object
 	 * @throws IOException if a config file wasn't found
@@ -316,7 +318,7 @@ public class FreeMarkerConfigurationFactory {
 	 * @see #createConfiguration()
 	 */
 	protected Configuration newConfiguration() throws IOException, TemplateException {
-		return new Configuration();
+		return new Configuration(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS);
 	}
 
 	/**
@@ -341,7 +343,7 @@ public class FreeMarkerConfigurationFactory {
 				}
 				return new FileTemplateLoader(file);
 			}
-			catch (IOException ex) {
+			catch (Exception ex) {
 				if (logger.isDebugEnabled()) {
 					logger.debug("Cannot resolve template loader path [" + templateLoaderPath +
 							"] to [java.io.File]: using SpringTemplateLoader as fallback", ex);
@@ -357,12 +359,12 @@ public class FreeMarkerConfigurationFactory {
 	}
 
 	/**
-	 * To be overridden by subclasses that want to to register custom
+	 * To be overridden by subclasses that want to register custom
 	 * TemplateLoader instances after this factory created its default
 	 * template loaders.
 	 * <p>Called by {@code createConfiguration()}. Note that specified
 	 * "postTemplateLoaders" will be registered <i>after</i> any loaders
-	 * registered by this callback; as a consequence, they are are <i>not</i>
+	 * registered by this callback; as a consequence, they are <i>not</i>
 	 * included in the given List.
 	 * @param templateLoaders the current List of TemplateLoader instances,
 	 * to be modified by a subclass
@@ -379,6 +381,7 @@ public class FreeMarkerConfigurationFactory {
 	 * @param templateLoaders the final List of TemplateLoader instances
 	 * @return the aggregate TemplateLoader
 	 */
+	@Nullable
 	protected TemplateLoader getAggregateTemplateLoader(List<TemplateLoader> templateLoaders) {
 		int loaderCount = templateLoaders.size();
 		switch (loaderCount) {
@@ -394,7 +397,7 @@ public class FreeMarkerConfigurationFactory {
 	}
 
 	/**
-	 * To be overridden by subclasses that want to to perform custom
+	 * To be overridden by subclasses that want to perform custom
 	 * post-processing of the Configuration object after this factory
 	 * performed its default initialization.
 	 * <p>Called by {@code createConfiguration()}.

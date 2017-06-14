@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,13 @@
 
 package org.springframework.web.servlet.config.annotation;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import org.springframework.util.Assert;
-import org.springframework.util.CollectionUtils;
 import org.springframework.util.PathMatcher;
+import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.handler.MappedInterceptor;
 
@@ -35,9 +37,9 @@ public class InterceptorRegistration {
 
 	private final HandlerInterceptor interceptor;
 
-	private final List<String> includePatterns = new ArrayList<String>();
+	private final List<String> includePatterns = new ArrayList<>();
 
-	private final List<String> excludePatterns = new ArrayList<String>();
+	private final List<String> excludePatterns = new ArrayList<>();
 
 	private PathMatcher pathMatcher;
 
@@ -82,24 +84,19 @@ public class InterceptorRegistration {
 	 * {@link MappedInterceptor}; otherwise {@link HandlerInterceptor}.
 	 */
 	protected Object getInterceptor() {
-		if (this.includePatterns.isEmpty()) {
+		if (this.includePatterns.isEmpty() && this.excludePatterns.isEmpty()) {
 			return this.interceptor;
 		}
-		MappedInterceptor mappedInterceptor = new MappedInterceptor(
-				toArray(this.includePatterns), toArray(this.excludePatterns), interceptor);
+
+		String[] include = StringUtils.toStringArray(this.includePatterns);
+		String[] exclude = StringUtils.toStringArray(this.excludePatterns);
+		MappedInterceptor mappedInterceptor = new MappedInterceptor(include, exclude, this.interceptor);
+
 		if (this.pathMatcher != null) {
 			mappedInterceptor.setPathMatcher(this.pathMatcher);
 		}
-		return mappedInterceptor;
-	}
 
-	private static String[] toArray(List<String> list) {
-		if (CollectionUtils.isEmpty(list)) {
-			return null;
-		}
-		else {
-			return list.toArray(new String[list.size()]);
-		}
+		return mappedInterceptor;
 	}
 
 }

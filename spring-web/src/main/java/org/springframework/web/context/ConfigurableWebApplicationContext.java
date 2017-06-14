@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2014 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
 
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.lang.Nullable;
 
 /**
  * Interface to be implemented by configurable web application contexts.
@@ -69,6 +70,7 @@ public interface ConfigurableWebApplicationContext extends WebApplicationContext
 	/**
 	 * Return the ServletConfig for this web application context, if any.
 	 */
+	@Nullable
 	ServletConfig getServletConfig();
 
 	/**
@@ -81,6 +83,7 @@ public interface ConfigurableWebApplicationContext extends WebApplicationContext
 	/**
 	 * Return the namespace for this web application context, if any.
 	 */
+	@Nullable
 	String getNamespace();
 
 	/**
@@ -96,12 +99,13 @@ public interface ConfigurableWebApplicationContext extends WebApplicationContext
 	 * <p>If not set, the implementation is supposed to use a default for the
 	 * given namespace or the root web application context, as appropriate.
 	 */
-	void setConfigLocations(String[] configLocations);
+	void setConfigLocations(String... configLocations);
 
 	/**
 	 * Return the config locations for this web application context,
 	 * or {@code null} if none specified.
 	 */
+	@Nullable
 	String[] getConfigLocations();
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.web.servlet.mvc.method.annotation;
 
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.core.MethodParameter;
+import org.springframework.lang.Nullable;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.context.request.async.WebAsyncTask;
 import org.springframework.web.context.request.async.WebAsyncUtils;
@@ -39,16 +40,15 @@ public class AsyncTaskMethodReturnValueHandler implements HandlerMethodReturnVal
 		this.beanFactory = beanFactory;
 	}
 
+
 	@Override
 	public boolean supportsReturnType(MethodParameter returnType) {
-		Class<?> paramType = returnType.getParameterType();
-		return WebAsyncTask.class.isAssignableFrom(paramType);
+		return WebAsyncTask.class.isAssignableFrom(returnType.getParameterType());
 	}
 
 	@Override
-	public void handleReturnValue(Object returnValue,
-			MethodParameter returnType, ModelAndViewContainer mavContainer,
-			NativeWebRequest webRequest) throws Exception {
+	public void handleReturnValue(@Nullable Object returnValue, MethodParameter returnType,
+			ModelAndViewContainer mavContainer, NativeWebRequest webRequest) throws Exception {
 
 		if (returnValue == null) {
 			mavContainer.setRequestHandled(true);

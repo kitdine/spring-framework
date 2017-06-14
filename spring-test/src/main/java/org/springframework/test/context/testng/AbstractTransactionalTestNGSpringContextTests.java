@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import org.springframework.test.context.transaction.TransactionalTestExecutionLi
 import org.springframework.test.jdbc.JdbcTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.Assert;
 
 /**
  * Abstract {@linkplain Transactional transactional} extension of
@@ -48,6 +49,17 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Concrete subclasses must fulfill the same requirements outlined in
  * {@link AbstractTestNGSpringContextTests}.
  *
+ * <p>The following {@link org.springframework.test.context.TestExecutionListener
+ * TestExecutionListeners} are configured by default:
+ *
+ * <ul>
+ * <li>{@link org.springframework.test.context.web.ServletTestExecutionListener}
+ * <li>{@link org.springframework.test.context.support.DependencyInjectionTestExecutionListener}
+ * <li>{@link org.springframework.test.context.support.DirtiesContextTestExecutionListener}
+ * <li>{@link org.springframework.test.context.transaction.TransactionalTestExecutionListener}
+ * <li>{@link org.springframework.test.context.jdbc.SqlScriptsTestExecutionListener}
+ * </ul>
+ *
  * @author Sam Brannen
  * @author Juergen Hoeller
  * @since 2.5
@@ -56,15 +68,15 @@ import org.springframework.transaction.annotation.Transactional;
  * @see org.springframework.test.context.TestExecutionListeners
  * @see org.springframework.test.context.transaction.TransactionalTestExecutionListener
  * @see org.springframework.test.context.jdbc.SqlScriptsTestExecutionListener
- * @see org.springframework.test.context.transaction.TransactionConfiguration
  * @see org.springframework.transaction.annotation.Transactional
+ * @see org.springframework.test.annotation.Commit
  * @see org.springframework.test.annotation.Rollback
  * @see org.springframework.test.context.transaction.BeforeTransaction
  * @see org.springframework.test.context.transaction.AfterTransaction
  * @see org.springframework.test.jdbc.JdbcTestUtils
  * @see org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests
  */
-@TestExecutionListeners({ TransactionalTestExecutionListener.class, SqlScriptsTestExecutionListener.class })
+@TestExecutionListeners({TransactionalTestExecutionListener.class, SqlScriptsTestExecutionListener.class})
 @Transactional
 public abstract class AbstractTransactionalTestNGSpringContextTests extends AbstractTestNGSpringContextTests {
 
@@ -174,8 +186,10 @@ public abstract class AbstractTransactionalTestNGSpringContextTests extends Abst
 	 * @see #setSqlScriptEncoding
 	 */
 	protected void executeSqlScript(String sqlResourcePath, boolean continueOnError) throws DataAccessException {
+		DataSource ds = this.jdbcTemplate.getDataSource();
+		Assert.state(ds != null, "No DataSource set");
 		Resource resource = this.applicationContext.getResource(sqlResourcePath);
-		new ResourceDatabasePopulator(continueOnError, false, this.sqlScriptEncoding, resource).execute(jdbcTemplate.getDataSource());
+		new ResourceDatabasePopulator(continueOnError, false, this.sqlScriptEncoding, resource).execute(ds);
 	}
 
 }

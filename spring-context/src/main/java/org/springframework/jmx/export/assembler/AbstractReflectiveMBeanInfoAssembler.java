@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.core.DefaultParameterNameDiscoverer;
 import org.springframework.core.ParameterNameDiscoverer;
 import org.springframework.jmx.support.JmxUtils;
+import org.springframework.lang.Nullable;
 
 /**
  * Builds on the {@link AbstractMBeanInfoAssembler} superclass to
@@ -210,6 +211,7 @@ public abstract class AbstractReflectiveMBeanInfoAssembler extends AbstractMBean
 	/**
 	 * Return default value for the JMX field "currencyTimeLimit", if any.
 	 */
+	@Nullable
 	protected Integer getDefaultCurrencyTimeLimit() {
 		return this.defaultCurrencyTimeLimit;
 	}
@@ -272,6 +274,7 @@ public abstract class AbstractReflectiveMBeanInfoAssembler extends AbstractMBean
 	 * Return the ParameterNameDiscoverer to use for resolving method parameter
 	 * names if needed (may be {@code null} in order to skip parameter detection).
 	 */
+	@Nullable
 	protected ParameterNameDiscoverer getParameterNameDiscoverer() {
 		return this.parameterNameDiscoverer;
 	}
@@ -292,7 +295,7 @@ public abstract class AbstractReflectiveMBeanInfoAssembler extends AbstractMBean
 	@Override
 	protected ModelMBeanAttributeInfo[] getAttributeInfo(Object managedBean, String beanKey) throws JMException {
 		PropertyDescriptor[] props = BeanUtils.getPropertyDescriptors(getClassToExpose(managedBean));
-		List<ModelMBeanAttributeInfo> infos = new ArrayList<ModelMBeanAttributeInfo>();
+		List<ModelMBeanAttributeInfo> infos = new ArrayList<>();
 
 		for (PropertyDescriptor prop : props) {
 			Method getter = prop.getReadMethod();
@@ -346,13 +349,13 @@ public abstract class AbstractReflectiveMBeanInfoAssembler extends AbstractMBean
 	@Override
 	protected ModelMBeanOperationInfo[] getOperationInfo(Object managedBean, String beanKey) {
 		Method[] methods = getClassToExpose(managedBean).getMethods();
-		List<ModelMBeanOperationInfo> infos = new ArrayList<ModelMBeanOperationInfo>();
+		List<ModelMBeanOperationInfo> infos = new ArrayList<>();
 
 		for (Method method : methods) {
 			if (method.isSynthetic()) {
 				continue;
 			}
-			if (method.getDeclaringClass().equals(Object.class)) {
+			if (Object.class == method.getDeclaringClass()) {
 				continue;
 			}
 
@@ -514,7 +517,7 @@ public abstract class AbstractReflectiveMBeanInfoAssembler extends AbstractMBean
 
 		MBeanParameterInfo[] info = new MBeanParameterInfo[paramNames.length];
 		Class<?>[] typeParameters = method.getParameterTypes();
-		for(int i = 0; i < info.length; i++) {
+		for (int i = 0; i < info.length; i++) {
 			info[i] = new MBeanParameterInfo(paramNames[i], typeParameters[i].getName(), paramNames[i]);
 		}
 
@@ -550,7 +553,9 @@ public abstract class AbstractReflectiveMBeanInfoAssembler extends AbstractMBean
 	 * @see #setDefaultCurrencyTimeLimit(Integer)
 	 * @see #applyDefaultCurrencyTimeLimit(javax.management.Descriptor)
 	 */
-	protected void populateAttributeDescriptor(Descriptor desc, Method getter, Method setter, String beanKey) {
+	protected void populateAttributeDescriptor(
+			Descriptor desc, @Nullable Method getter, @Nullable Method setter, String beanKey) {
+
 		applyDefaultCurrencyTimeLimit(desc);
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package org.springframework.test.web.servlet;
 
 import java.util.ArrayList;
 import java.util.List;
-
+import javax.servlet.DispatcherType;
 import javax.servlet.Filter;
 import javax.servlet.ServletContext;
 
@@ -27,15 +27,21 @@ import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.util.Assert;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * <strong>Main entry point for server-side Spring MVC test support.</strong>
  *
- * <p>Below is an example:
+ * <h3>Example</h3>
  *
  * <pre class="code">
- * static imports:
- * MockMvcBuilders.*, MockMvcRequestBuilders.*, MockMvcResultMatchers.*
+ * import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+ * import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+ * import static org.springframework.test.web.servlet.setup.MockMvcBuilders.*;
+ *
+ * // ...
  *
  * WebApplicationContext wac = ...;
  *
@@ -49,6 +55,7 @@ import org.springframework.util.Assert;
  *
  * @author Rossen Stoyanchev
  * @author Rob Winch
+ * @author Sam Brannen
  * @since 3.2
  */
 public final class MockMvc {
@@ -63,26 +70,24 @@ public final class MockMvc {
 
 	private RequestBuilder defaultRequestBuilder;
 
-	private List<ResultMatcher> defaultResultMatchers = new ArrayList<ResultMatcher>();
+	private List<ResultMatcher> defaultResultMatchers = new ArrayList<>();
 
-	private List<ResultHandler> defaultResultHandlers = new ArrayList<ResultHandler>();
+	private List<ResultHandler> defaultResultHandlers = new ArrayList<>();
 
 
 	/**
 	 * Private constructor, not for direct instantiation.
 	 * @see org.springframework.test.web.servlet.setup.MockMvcBuilders
 	 */
-	MockMvc(TestDispatcherServlet servlet, Filter[] filters, ServletContext servletContext) {
-
+	MockMvc(TestDispatcherServlet servlet, Filter... filters) {
 		Assert.notNull(servlet, "DispatcherServlet is required");
-		Assert.notNull(filters, "filters cannot be null");
-		Assert.noNullElements(filters, "filters cannot contain null values");
-		Assert.notNull(servletContext, "A ServletContext is required");
-
+		Assert.notNull(filters, "Filters cannot be null");
+		Assert.noNullElements(filters, "Filters cannot contain null values");
 		this.servlet = servlet;
 		this.filters = filters;
-		this.servletContext = servletContext;
+		this.servletContext = servlet.getServletContext();
 	}
+
 
 	/**
 	 * A default request builder merged into every performed request.
@@ -113,18 +118,14 @@ public final class MockMvc {
 	/**
 	 * Perform a request and return a type that allows chaining further
 	 * actions, such as asserting expectations, on the result.
-	 *
 	 * @param requestBuilder used to prepare the request to execute;
 	 * see static factory methods in
 	 * {@link org.springframework.test.web.servlet.request.MockMvcRequestBuilders}
-	 *
 	 * @return an instance of {@link ResultActions}; never {@code null}
-	 *
 	 * @see org.springframework.test.web.servlet.request.MockMvcRequestBuilders
 	 * @see org.springframework.test.web.servlet.result.MockMvcResultMatchers
 	 */
 	public ResultActions perform(RequestBuilder requestBuilder) throws Exception {
-
 		if (this.defaultRequestBuilder != null) {
 			if (requestBuilder instanceof Mergeable) {
 				requestBuilder = (RequestBuilder) ((Mergeable) requestBuilder).merge(this.defaultRequestBuilder);
@@ -134,34 +135,45 @@ public final class MockMvc {
 		MockHttpServletRequest request = requestBuilder.buildRequest(this.servletContext);
 		MockHttpServletResponse response = new MockHttpServletResponse();
 
+		if (requestBuilder instanceof SmartRequestBuilder) {
+			request = ((SmartRequestBuilder) requestBuilder).postProcessRequest(request);
+		}
+
 		final MvcResult mvcResult = new DefaultMvcResult(request, response);
 		request.setAttribute(MVC_RESULT_ATTRIBUTE, mvcResult);
+
+		RequestAttributes previousAttributes = RequestContextHolder.getRequestAttributes();
+		RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request, response));
 
 		MockFilterChain filterChain = new MockFilterChain(this.servlet, this.filters);
 		filterChain.doFilter(request, response);
 
+		if (DispatcherType.ASYNC.equals(request.getDispatcherType()) &&
+				request.getAsyncContext() != null & !request.isAsyncStarted()) {
+			request.getAsyncContext().complete();
+		}
+
 		applyDefaultResultActions(mvcResult);
+		RequestContextHolder.setRequestAttributes(previousAttributes);
 
 		return new ResultActions() {
-
 			@Override
 			public ResultActions andExpect(ResultMatcher matcher) throws Exception {
 				matcher.match(mvcResult);
 				return this;
 			}
-
 			@Override
-			public ResultActions andDo(ResultHandler printer) throws Exception {
-				printer.handle(mvcResult);
+			public ResultActions andDo(ResultHandler handler) throws Exception {
+				handler.handle(mvcResult);
 				return this;
 			}
-
 			@Override
 			public MvcResult andReturn() {
 				return mvcResult;
 			}
 		};
 	}
+
 
 	private void applyDefaultResultActions(MvcResult mvcResult) throws Exception {
 

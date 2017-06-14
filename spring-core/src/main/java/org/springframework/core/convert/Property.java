@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import java.util.Map;
 
 import org.springframework.core.GenericTypeResolver;
 import org.springframework.core.MethodParameter;
+import org.springframework.lang.Nullable;
 import org.springframework.util.ConcurrentReferenceHashMap;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.ReflectionUtils;
@@ -47,8 +48,7 @@ import org.springframework.util.StringUtils;
  */
 public final class Property {
 
-	private static Map<Property, Annotation[]> annotationCache =
-			new ConcurrentReferenceHashMap<Property, Annotation[]>();
+	private static Map<Property, Annotation[]> annotationCache = new ConcurrentReferenceHashMap<>();
 
 	private final Class<?> objectType;
 
@@ -62,16 +62,19 @@ public final class Property {
 
 	private Annotation[] annotations;
 
-	public Property(Class<?> objectType, Method readMethod, Method writeMethod) {
+
+	public Property(Class<?> objectType, @Nullable Method readMethod, @Nullable Method writeMethod) {
 		this(objectType, readMethod, writeMethod, null);
 	}
 
-	public Property(Class<?> objectType, Method readMethod, Method writeMethod, String name) {
+	public Property(
+			Class<?> objectType, @Nullable Method readMethod, @Nullable Method writeMethod, @Nullable String name) {
+
 		this.objectType = objectType;
 		this.readMethod = readMethod;
 		this.writeMethod = writeMethod;
 		this.methodParameter = resolveMethodParameter();
-		this.name = (name == null ? resolveName() : name);
+		this.name = (name != null ? name : resolveName());
 	}
 
 
@@ -99,6 +102,7 @@ public final class Property {
 	/**
 	 * The property getter method: e.g. {@code getFoo()}
 	 */
+	@Nullable
 	public Method getReadMethod() {
 		return this.readMethod;
 	}
@@ -106,6 +110,7 @@ public final class Property {
 	/**
 	 * The property setter method: e.g. {@code setFoo(String)}
 	 */
+	@Nullable
 	public Method getWriteMethod() {
 		return this.writeMethod;
 	}
@@ -118,7 +123,7 @@ public final class Property {
 	}
 
 	Annotation[] getAnnotations() {
-		if(this.annotations == null) {
+		if (this.annotations == null) {
 			this.annotations = resolveAnnotations();
 		}
 		return this.annotations;
@@ -143,10 +148,11 @@ public final class Property {
 			return StringUtils.uncapitalize(this.readMethod.getName().substring(index));
 		}
 		else {
-			int index = this.writeMethod.getName().indexOf("set") + 3;
+			int index = this.writeMethod.getName().indexOf("set");
 			if (index == -1) {
 				throw new IllegalArgumentException("Not a setter method");
 			}
+			index += 3;
 			return StringUtils.uncapitalize(this.writeMethod.getName().substring(index));
 		}
 	}
@@ -170,6 +176,7 @@ public final class Property {
 		return write;
 	}
 
+	@Nullable
 	private MethodParameter resolveReadMethodParameter() {
 		if (getReadMethod() == null) {
 			return null;
@@ -177,6 +184,7 @@ public final class Property {
 		return resolveParameterType(new MethodParameter(getReadMethod(), -1));
 	}
 
+	@Nullable
 	private MethodParameter resolveWriteMethodParameter() {
 		if (getWriteMethod() == null) {
 			return null;
@@ -192,8 +200,8 @@ public final class Property {
 
 	private Annotation[] resolveAnnotations() {
 		Annotation[] annotations = annotationCache.get(this);
-		if(annotations == null) {
-			Map<Class<? extends Annotation>, Annotation> annotationMap = new LinkedHashMap<Class<? extends Annotation>, Annotation>();
+		if (annotations == null) {
+			Map<Class<? extends Annotation>, Annotation> annotationMap = new LinkedHashMap<>();
 			addAnnotationsToMap(annotationMap, getReadMethod());
 			addAnnotationsToMap(annotationMap, getWriteMethod());
 			addAnnotationsToMap(annotationMap, getField());
@@ -204,8 +212,8 @@ public final class Property {
 	}
 
 	private void addAnnotationsToMap(
-		Map<Class<? extends Annotation>, Annotation> annotationMap,
-		AnnotatedElement object) {
+			Map<Class<? extends Annotation>, Annotation> annotationMap, @Nullable AnnotatedElement object) {
+
 		if (object != null) {
 			for (Annotation annotation : object.getAnnotations()) {
 				annotationMap.put(annotation.annotationType(), annotation);
@@ -213,62 +221,61 @@ public final class Property {
 		}
 	}
 
+	@Nullable
 	private Field getField() {
 		String name = getName();
 		if (!StringUtils.hasLength(name)) {
 			return null;
 		}
+		Field field = null;
 		Class<?> declaringClass = declaringClass();
-		Field field = ReflectionUtils.findField(declaringClass, name);
-		if (field == null) {
-			// Same lenient fallback checking as in CachedIntrospectionResults...
-			field = ReflectionUtils.findField(declaringClass,
-					name.substring(0, 1).toLowerCase() + name.substring(1));
+		if (declaringClass != null) {
+			field = ReflectionUtils.findField(declaringClass, name);
 			if (field == null) {
+				// Same lenient fallback checking as in CachedIntrospectionResults...
 				field = ReflectionUtils.findField(declaringClass,
-						name.substring(0, 1).toUpperCase() + name.substring(1));
+						name.substring(0, 1).toLowerCase() + name.substring(1));
+				if (field == null) {
+					field = ReflectionUtils.findField(declaringClass,
+							name.substring(0, 1).toUpperCase() + name.substring(1));
+				}
 			}
 		}
 		return field;
 	}
 
+	@Nullable
 	private Class<?> declaringClass() {
 		if (getReadMethod() != null) {
 			return getReadMethod().getDeclaringClass();
 		}
-		else {
+		else if (getWriteMethod() != null) {
 			return getWriteMethod().getDeclaringClass();
 		}
+		else {
+			return null;
+		}
+	}
+
+
+	@Override
+	public boolean equals(Object other) {
+		if (this == other) {
+			return true;
+		}
+		if (!(other instanceof Property)) {
+			return false;
+		}
+		Property otherProperty = (Property) other;
+		return (ObjectUtils.nullSafeEquals(this.objectType, otherProperty.objectType) &&
+				ObjectUtils.nullSafeEquals(this.name, otherProperty.name) &&
+				ObjectUtils.nullSafeEquals(this.readMethod, otherProperty.readMethod) &&
+				ObjectUtils.nullSafeEquals(this.writeMethod, otherProperty.writeMethod));
 	}
 
 	@Override
 	public int hashCode() {
-		final int prime = 31;
-		int hashCode = 1;
-		hashCode = prime * hashCode + ObjectUtils.nullSafeHashCode(this.objectType);
-		hashCode = prime * hashCode + ObjectUtils.nullSafeHashCode(this.readMethod);
-		hashCode = prime * hashCode + ObjectUtils.nullSafeHashCode(this.writeMethod);
-		hashCode = prime * hashCode + ObjectUtils.nullSafeHashCode(this.name);
-		return hashCode;
+		return (ObjectUtils.nullSafeHashCode(this.objectType) * 31 + ObjectUtils.nullSafeHashCode(this.name));
 	}
 
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj) {
-			return true;
-		}
-		if (obj == null) {
-			return false;
-		}
-		if (getClass() != obj.getClass()) {
-			return false;
-		}
-		Property other = (Property) obj;
-		boolean equals = true;
-		equals &= ObjectUtils.nullSafeEquals(this.objectType, other.objectType);
-		equals &= ObjectUtils.nullSafeEquals(this.readMethod, other.readMethod);
-		equals &= ObjectUtils.nullSafeEquals(this.writeMethod, other.writeMethod);
-		equals &= ObjectUtils.nullSafeEquals(this.name, other.name);
-		return equals;
-	}
 }

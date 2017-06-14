@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2008 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ public abstract class AbstractConfigurableMBeanInfoAssembler extends AbstractRef
 	private ModelMBeanNotificationInfo[] notificationInfos;
 
 	private final Map<String, ModelMBeanNotificationInfo[]> notificationInfoMappings =
-			new HashMap<String, ModelMBeanNotificationInfo[]>();
+			new HashMap<>();
 
 
 	public void setNotificationInfos(ManagedNotification[] notificationInfos) {
@@ -53,9 +53,8 @@ public abstract class AbstractConfigurableMBeanInfoAssembler extends AbstractRef
 	}
 
 	public void setNotificationInfoMappings(Map<String, Object> notificationInfoMappings) {
-		for (Map.Entry<String, Object> entry : notificationInfoMappings.entrySet()) {
-			this.notificationInfoMappings.put(entry.getKey(), extractNotificationMetadata(entry.getValue()));
-		}
+		notificationInfoMappings.forEach((beanKey, result) ->
+				this.notificationInfoMappings.put(beanKey, extractNotificationMetadata(result)));
 	}
 
 
@@ -78,7 +77,7 @@ public abstract class AbstractConfigurableMBeanInfoAssembler extends AbstractRef
 		}
 		else if (mapValue instanceof Collection) {
 			Collection<?> col = (Collection<?>) mapValue;
-			List<ModelMBeanNotificationInfo> result = new ArrayList<ModelMBeanNotificationInfo>();
+			List<ModelMBeanNotificationInfo> result = new ArrayList<>();
 			for (Object colValue : col) {
 				if (!(colValue instanceof ManagedNotification)) {
 					throw new IllegalArgumentException(

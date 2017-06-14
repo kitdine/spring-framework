@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,14 @@
 
 package org.springframework.util.xml;
 
+import java.util.List;
 import javax.xml.stream.XMLEventFactory;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLEventWriter;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.XMLStreamWriter;
+import javax.xml.stream.events.XMLEvent;
 import javax.xml.transform.Result;
 import javax.xml.transform.Source;
 import javax.xml.transform.stax.StAXResult;
@@ -29,6 +31,8 @@ import javax.xml.transform.stax.StAXSource;
 
 import org.xml.sax.ContentHandler;
 import org.xml.sax.XMLReader;
+
+import org.springframework.lang.Nullable;
 
 /**
  * Convenience methods for working with the StAX API. Partly historic due to JAXP 1.3 compatibility;
@@ -96,6 +100,7 @@ public abstract class StaxUtils {
 	 * @throws IllegalArgumentException if {@code source} isn't a JAXP 1.4 {@link StAXSource}
 	 * or custom StAX Source
 	 */
+	@Nullable
 	public static XMLStreamReader getXMLStreamReader(Source source) {
 		if (source instanceof StAXSource) {
 			return ((StAXSource) source).getXMLStreamReader();
@@ -115,6 +120,7 @@ public abstract class StaxUtils {
 	 * @throws IllegalArgumentException if {@code source} isn't a JAXP 1.4 {@link StAXSource}
 	 * or custom StAX Source
 	 */
+	@Nullable
 	public static XMLEventReader getXMLEventReader(Source source) {
 		if (source instanceof StAXSource) {
 			return ((StAXSource) source).getXMLEventReader();
@@ -180,6 +186,7 @@ public abstract class StaxUtils {
 	 * @throws IllegalArgumentException if {@code source} isn't a JAXP 1.4 {@link StAXResult}
 	 * or custom StAX Result
 	 */
+	@Nullable
 	public static XMLStreamWriter getXMLStreamWriter(Result result) {
 		if (result instanceof StAXResult) {
 			return ((StAXResult) result).getXMLStreamWriter();
@@ -199,6 +206,7 @@ public abstract class StaxUtils {
 	 * @throws IllegalArgumentException if {@code source} isn't a JAXP 1.4 {@link StAXResult}
 	 * or custom StAX Result
 	 */
+	@Nullable
 	public static XMLEventWriter getXMLEventWriter(Result result) {
 		if (result instanceof StAXResult) {
 			return ((StAXResult) result).getXMLEventWriter();
@@ -209,6 +217,16 @@ public abstract class StaxUtils {
 		else {
 			throw new IllegalArgumentException("Result '" + result + "' is neither StaxResult nor StAXResult");
 		}
+	}
+
+	/**
+	 * Create a {@link XMLEventReader} from the given list of {@link XMLEvent}.
+	 * @param events the list of {@link XMLEvent}s.
+	 * @return an {@code XMLEventReader} that reads from the given events
+	 * @since 5.0
+	 */
+	public static XMLEventReader createXMLEventReader(List<XMLEvent> events) {
+		return new ListBasedXMLEventReader(events);
 	}
 
 	/**

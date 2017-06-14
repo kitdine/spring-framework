@@ -22,6 +22,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.springframework.http.MediaType;
+import org.springframework.lang.Nullable;
 
 /**
  * MVC View for a web interaction. Implementations are responsible for rendering
@@ -74,6 +75,7 @@ public interface View {
 	 * @return the content type String (optionally including a character set),
 	 * or {@code null} if not predetermined.
 	 */
+	@Nullable
 	String getContentType();
 
 	/**
@@ -88,6 +90,6 @@ public interface View {
 	 * @param response HTTP response we are building
 	 * @throws Exception if rendering failed
 	 */
-	void render(Map<String, ?> model, HttpServletRequest request, HttpServletResponse response) throws Exception;
+	void render(@Nullable Map<String, ?> model, HttpServletRequest request, HttpServletResponse response) throws Exception;
 
 }

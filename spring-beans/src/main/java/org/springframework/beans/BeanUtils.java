@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,15 +29,16 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.WeakHashMap;
+import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import org.springframework.core.MethodParameter;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
+import org.springframework.util.ConcurrentReferenceHashMap;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
 
@@ -57,19 +58,20 @@ public abstract class BeanUtils {
 
 	private static final Log logger = LogFactory.getLog(BeanUtils.class);
 
-	// Effectively using a WeakHashMap as a Set
-	private static final Map<Class<?>, Boolean> unknownEditorTypes =
-			Collections.synchronizedMap(new WeakHashMap<Class<?>, Boolean>());
+	private static final Set<Class<?>> unknownEditorTypes =
+			Collections.newSetFromMap(new ConcurrentReferenceHashMap<>(64));
 
 
 	/**
 	 * Convenience method to instantiate a class using its no-arg constructor.
-	 * As this method doesn't try to load classes by name, it should avoid
-	 * class-loading issues.
 	 * @param clazz class to instantiate
 	 * @return the new instance
 	 * @throws BeanInstantiationException if the bean cannot be instantiated
+	 * @deprecated as of Spring 5.0, following the deprecation of
+	 * {@link Class#newInstance()} in JDK 9
+	 * @see Class#newInstance()
 	 */
+	@Deprecated
 	public static <T> T instantiate(Class<T> clazz) throws BeanInstantiationException {
 		Assert.notNull(clazz, "Class must not be null");
 		if (clazz.isInterface()) {
@@ -88,13 +90,12 @@ public abstract class BeanUtils {
 
 	/**
 	 * Instantiate a class using its no-arg constructor.
-	 * As this method doesn't try to load classes by name, it should avoid
-	 * class-loading issues.
 	 * <p>Note that this method tries to set the constructor accessible
 	 * if given a non-accessible (that is, non-public) constructor.
 	 * @param clazz class to instantiate
 	 * @return the new instance
 	 * @throws BeanInstantiationException if the bean cannot be instantiated
+	 * @see Constructor#newInstance
 	 */
 	public static <T> T instantiateClass(Class<T> clazz) throws BeanInstantiationException {
 		Assert.notNull(clazz, "Class must not be null");
@@ -111,18 +112,16 @@ public abstract class BeanUtils {
 
 	/**
 	 * Instantiate a class using its no-arg constructor and return the new instance
-	 * as the the specified assignable type.
-	 * <p>Useful in cases where
-	 * the type of the class to instantiate (clazz) is not available, but the type
-	 * desired (assignableTo) is known.
-	 * <p>As this method doesn't try to load classes by name, it should avoid
-	 * class-loading issues.
-	 * <p>Note that this method tries to set the constructor accessible
-	 * if given a non-accessible (that is, non-public) constructor.
+	 * as the specified assignable type.
+	 * <p>Useful in cases where the type of the class to instantiate (clazz) is not
+	 * available, but the type desired (assignableTo) is known.
+	 * <p>Note that this method tries to set the constructor accessible if given a
+	 * non-accessible (that is, non-public) constructor.
 	 * @param clazz class to instantiate
 	 * @param assignableTo type that clazz must be assignableTo
 	 * @return the new instance
 	 * @throws BeanInstantiationException if the bean cannot be instantiated
+	 * @see Constructor#newInstance
 	 */
 	@SuppressWarnings("unchecked")
 	public static <T> T instantiateClass(Class<?> clazz, Class<T> assignableTo) throws BeanInstantiationException {
@@ -132,14 +131,13 @@ public abstract class BeanUtils {
 
 	/**
 	 * Convenience method to instantiate a class using the given constructor.
-	 * As this method doesn't try to load classes by name, it should avoid
-	 * class-loading issues.
-	 * <p>Note that this method tries to set the constructor accessible
-	 * if given a non-accessible (that is, non-public) constructor.
+	 * <p>Note that this method tries to set the constructor accessible if given a
+	 * non-accessible (that is, non-public) constructor.
 	 * @param ctor the constructor to instantiate
 	 * @param args the constructor arguments to apply
 	 * @return the new instance
 	 * @throws BeanInstantiationException if the bean cannot be instantiated
+	 * @see Constructor#newInstance
 	 */
 	public static <T> T instantiateClass(Constructor<T> ctor, Object... args) throws BeanInstantiationException {
 		Assert.notNull(ctor, "Constructor must not be null");
@@ -148,20 +146,16 @@ public abstract class BeanUtils {
 			return ctor.newInstance(args);
 		}
 		catch (InstantiationException ex) {
-			throw new BeanInstantiationException(ctor.getDeclaringClass(),
-					"Is it an abstract class?", ex);
+			throw new BeanInstantiationException(ctor, "Is it an abstract class?", ex);
 		}
 		catch (IllegalAccessException ex) {
-			throw new BeanInstantiationException(ctor.getDeclaringClass(),
-					"Is the constructor accessible?", ex);
+			throw new BeanInstantiationException(ctor, "Is the constructor accessible?", ex);
 		}
 		catch (IllegalArgumentException ex) {
-			throw new BeanInstantiationException(ctor.getDeclaringClass(),
-					"Illegal arguments for constructor", ex);
+			throw new BeanInstantiationException(ctor, "Illegal arguments for constructor", ex);
 		}
 		catch (InvocationTargetException ex) {
-			throw new BeanInstantiationException(ctor.getDeclaringClass(),
-					"Constructor threw exception", ex.getTargetException());
+			throw new BeanInstantiationException(ctor, "Constructor threw exception", ex.getTargetException());
 		}
 	}
 
@@ -179,6 +173,7 @@ public abstract class BeanUtils {
 	 * @see Class#getMethod
 	 * @see #findDeclaredMethod
 	 */
+	@Nullable
 	public static Method findMethod(Class<?> clazz, String methodName, Class<?>... paramTypes) {
 		try {
 			return clazz.getMethod(methodName, paramTypes);
@@ -199,6 +194,7 @@ public abstract class BeanUtils {
 	 * @return the Method object, or {@code null} if not found
 	 * @see Class#getDeclaredMethod
 	 */
+	@Nullable
 	public static Method findDeclaredMethod(Class<?> clazz, String methodName, Class<?>... paramTypes) {
 		try {
 			return clazz.getDeclaredMethod(methodName, paramTypes);
@@ -226,6 +222,7 @@ public abstract class BeanUtils {
 	 * @see Class#getMethods
 	 * @see #findDeclaredMethodWithMinimalParameters
 	 */
+	@Nullable
 	public static Method findMethodWithMinimalParameters(Class<?> clazz, String methodName)
 			throws IllegalArgumentException {
 
@@ -248,6 +245,7 @@ public abstract class BeanUtils {
 	 * could not be resolved to a unique method with minimal parameters
 	 * @see Class#getDeclaredMethods
 	 */
+	@Nullable
 	public static Method findDeclaredMethodWithMinimalParameters(Class<?> clazz, String methodName)
 			throws IllegalArgumentException {
 
@@ -267,6 +265,7 @@ public abstract class BeanUtils {
 	 * @throws IllegalArgumentException if methods of the given name were found but
 	 * could not be resolved to a unique method with minimal parameters
 	 */
+	@Nullable
 	public static Method findMethodWithMinimalParameters(Method[] methods, String methodName)
 			throws IllegalArgumentException {
 
@@ -274,13 +273,17 @@ public abstract class BeanUtils {
 		int numMethodsFoundWithCurrentMinimumArgs = 0;
 		for (Method method : methods) {
 			if (method.getName().equals(methodName)) {
-				int numParams = method.getParameterTypes().length;
-				if (targetMethod == null || numParams < targetMethod.getParameterTypes().length) {
+				int numParams = method.getParameterCount();
+				if (targetMethod == null || numParams < targetMethod.getParameterCount()) {
 					targetMethod = method;
 					numMethodsFoundWithCurrentMinimumArgs = 1;
 				}
-				else {
-					if (targetMethod.getParameterTypes().length == numParams) {
+				else if (!method.isBridge() && targetMethod.getParameterCount() == numParams) {
+					if (targetMethod.isBridge()) {
+						// Prefer regular method over bridge...
+						targetMethod = method;
+					}
+					else {
 						// Additional candidate with same length
 						numMethodsFoundWithCurrentMinimumArgs++;
 					}
@@ -290,7 +293,7 @@ public abstract class BeanUtils {
 		if (numMethodsFoundWithCurrentMinimumArgs > 1) {
 			throw new IllegalArgumentException("Cannot resolve method '" + methodName +
 					"' to a unique method. Attempted to resolve to overloaded method with " +
-					"the least number of parameters, but there were " +
+					"the least number of parameters but there were " +
 					numMethodsFoundWithCurrentMinimumArgs + " candidates.");
 		}
 		return targetMethod;
@@ -314,6 +317,7 @@ public abstract class BeanUtils {
 	 * @see #findMethod
 	 * @see #findMethodWithMinimalParameters
 	 */
+	@Nullable
 	public static Method resolveSignature(String signature, Class<?> clazz) {
 		Assert.hasText(signature, "'signature' must not be empty");
 		Assert.notNull(clazz, "Class must not be null");
@@ -368,6 +372,7 @@ public abstract class BeanUtils {
 	 * @return the corresponding PropertyDescriptor, or {@code null} if none
 	 * @throws BeansException if PropertyDescriptor lookup fails
 	 */
+	@Nullable
 	public static PropertyDescriptor getPropertyDescriptor(Class<?> clazz, String propertyName)
 			throws BeansException {
 
@@ -379,13 +384,30 @@ public abstract class BeanUtils {
 	 * Find a JavaBeans {@code PropertyDescriptor} for the given method,
 	 * with the method either being the read method or the write method for
 	 * that bean property.
-	 * @param method the method to find a corresponding PropertyDescriptor for
+	 * @param method the method to find a corresponding PropertyDescriptor for,
+	 * introspecting its declaring class
 	 * @return the corresponding PropertyDescriptor, or {@code null} if none
 	 * @throws BeansException if PropertyDescriptor lookup fails
 	 */
+	@Nullable
 	public static PropertyDescriptor findPropertyForMethod(Method method) throws BeansException {
+		return findPropertyForMethod(method, method.getDeclaringClass());
+	}
+
+	/**
+	 * Find a JavaBeans {@code PropertyDescriptor} for the given method,
+	 * with the method either being the read method or the write method for
+	 * that bean property.
+	 * @param method the method to find a corresponding PropertyDescriptor for
+	 * @param clazz the (most specific) class to introspect for descriptors
+	 * @return the corresponding PropertyDescriptor, or {@code null} if none
+	 * @throws BeansException if PropertyDescriptor lookup fails
+	 * @since 3.2.13
+	 */
+	@Nullable
+	public static PropertyDescriptor findPropertyForMethod(Method method, Class<?> clazz) throws BeansException {
 		Assert.notNull(method, "Method must not be null");
-		PropertyDescriptor[] pds = getPropertyDescriptors(method.getDeclaringClass());
+		PropertyDescriptor[] pds = getPropertyDescriptors(clazz);
 		for (PropertyDescriptor pd : pds) {
 			if (method.equals(pd.getReadMethod()) || method.equals(pd.getWriteMethod())) {
 				return pd;
@@ -403,8 +425,9 @@ public abstract class BeanUtils {
 	 * @param targetType the type to find an editor for
 	 * @return the corresponding editor, or {@code null} if none found
 	 */
-	public static PropertyEditor findEditorByConvention(Class<?> targetType) {
-		if (targetType == null || targetType.isArray() || unknownEditorTypes.containsKey(targetType)) {
+	@Nullable
+	public static PropertyEditor findEditorByConvention(@Nullable Class<?> targetType) {
+		if (targetType == null || targetType.isArray() || unknownEditorTypes.contains(targetType)) {
 			return null;
 		}
 		ClassLoader cl = targetType.getClassLoader();
@@ -431,7 +454,7 @@ public abstract class BeanUtils {
 					logger.warn("Editor class [" + editorName +
 							"] does not implement [java.beans.PropertyEditor] interface");
 				}
-				unknownEditorTypes.put(targetType, Boolean.TRUE);
+				unknownEditorTypes.add(targetType);
 				return null;
 			}
 			return (PropertyEditor) instantiateClass(editorClass);
@@ -441,7 +464,7 @@ public abstract class BeanUtils {
 				logger.debug("No property editor [" + editorName + "] found for type " +
 						targetType.getName() + " according to 'Editor' suffix convention");
 			}
-			unknownEditorTypes.put(targetType, Boolean.TRUE);
+			unknownEditorTypes.add(targetType);
 			return null;
 		}
 	}
@@ -453,7 +476,7 @@ public abstract class BeanUtils {
 	 * @param beanClasses the classes to check against
 	 * @return the property type, or {@code Object.class} as fallback
 	 */
-	public static Class<?> findPropertyType(String propertyName, Class<?>... beanClasses) {
+	public static Class<?> findPropertyType(String propertyName, @Nullable Class<?>... beanClasses) {
 		if (beanClasses != null) {
 			for (Class<?> beanClass : beanClasses) {
 				PropertyDescriptor pd = getPropertyDescriptor(beanClass, propertyName);
@@ -503,12 +526,12 @@ public abstract class BeanUtils {
 	 * @return whether the given type represents a "simple" value type
 	 */
 	public static boolean isSimpleValueType(Class<?> clazz) {
-		return ClassUtils.isPrimitiveOrWrapper(clazz) || clazz.isEnum() ||
+		return (ClassUtils.isPrimitiveOrWrapper(clazz) || clazz.isEnum() ||
 				CharSequence.class.isAssignableFrom(clazz) ||
 				Number.class.isAssignableFrom(clazz) ||
 				Date.class.isAssignableFrom(clazz) ||
-				clazz.equals(URI.class) || clazz.equals(URL.class) ||
-				clazz.equals(Locale.class) || clazz.equals(Class.class);
+				URI.class == clazz || URL.class == clazz ||
+				Locale.class == clazz || Class.class == clazz);
 	}
 
 
@@ -576,8 +599,8 @@ public abstract class BeanUtils {
 	 * @throws BeansException if the copying failed
 	 * @see BeanWrapper
 	 */
-	private static void copyProperties(Object source, Object target, Class<?> editable, String... ignoreProperties)
-			throws BeansException {
+	private static void copyProperties(Object source, Object target, @Nullable Class<?> editable,
+			@Nullable String... ignoreProperties) throws BeansException {
 
 		Assert.notNull(source, "Source must not be null");
 		Assert.notNull(target, "Target must not be null");
@@ -591,11 +614,11 @@ public abstract class BeanUtils {
 			actualEditable = editable;
 		}
 		PropertyDescriptor[] targetPds = getPropertyDescriptors(actualEditable);
-		List<String> ignoreList = (ignoreProperties != null) ? Arrays.asList(ignoreProperties) : null;
+		List<String> ignoreList = (ignoreProperties != null ? Arrays.asList(ignoreProperties) : null);
 
 		for (PropertyDescriptor targetPd : targetPds) {
 			Method writeMethod = targetPd.getWriteMethod();
-			if (writeMethod != null && (ignoreProperties == null || (!ignoreList.contains(targetPd.getName())))) {
+			if (writeMethod != null && (ignoreList == null || !ignoreList.contains(targetPd.getName()))) {
 				PropertyDescriptor sourcePd = getPropertyDescriptor(source.getClass(), targetPd.getName());
 				if (sourcePd != null) {
 					Method readMethod = sourcePd.getReadMethod();

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2008 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@ package org.springframework.web.servlet.view.document;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Map;
-
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.lowagie.text.pdf.PdfReader;
 import com.lowagie.text.pdf.PdfStamper;
 
+import org.springframework.util.Assert;
 import org.springframework.web.servlet.view.AbstractUrlBasedView;
 
 /**
@@ -76,7 +76,9 @@ public abstract class AbstractPdfStamperView extends AbstractUrlBasedView {
 	 * @see #setUrl
 	 */
 	protected PdfReader readPdfResource() throws IOException {
-		return new PdfReader(getApplicationContext().getResource(getUrl()).getInputStream());
+		String url = getUrl();
+		Assert.state(url != null, "'url' not set");
+		return new PdfReader(obtainApplicationContext().getResource(url).getInputStream());
 	}
 
 	/**

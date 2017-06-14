@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.util.PathMatcher;
@@ -38,8 +39,7 @@ import org.springframework.util.StringUtils;
  * @author Rossen Stoyanchev
  * @since 4.0
  */
-public final class DestinationPatternsMessageCondition
-		extends AbstractMessageCondition<DestinationPatternsMessageCondition> {
+public class DestinationPatternsMessageCondition extends AbstractMessageCondition<DestinationPatternsMessageCondition> {
 
 	public static final String LOOKUP_DESTINATION_HEADER = "lookupDestination";
 
@@ -59,37 +59,34 @@ public final class DestinationPatternsMessageCondition
 	}
 
 	/**
-	 * Additional constructor with flags for using suffix pattern (.*) and
-	 * trailing slash matches.
+	 * Alternative constructor accepting a custom PathMatcher.
 	 * @param patterns the URL patterns to use; if 0, the condition will match to every request.
-	 * @param pathMatcher for path matching with patterns
+	 * @param pathMatcher the PathMatcher to use
 	 */
-	public DestinationPatternsMessageCondition(String[] patterns,PathMatcher pathMatcher) {
-		this(asList(patterns), pathMatcher);
+	public DestinationPatternsMessageCondition(String[] patterns, @Nullable PathMatcher pathMatcher) {
+		this(Arrays.asList(patterns), pathMatcher);
 	}
 
-	private DestinationPatternsMessageCondition(Collection<String> patterns, PathMatcher pathMatcher) {
-		this.patterns = Collections.unmodifiableSet(prependLeadingSlash(patterns));
-		this.pathMatcher = (pathMatcher != null) ? pathMatcher : new AntPathMatcher();
+	private DestinationPatternsMessageCondition(Collection<String> patterns, @Nullable PathMatcher pathMatcher) {
+		this.pathMatcher = (pathMatcher != null ? pathMatcher : new AntPathMatcher());
+		this.patterns = Collections.unmodifiableSet(prependLeadingSlash(patterns, this.pathMatcher));
 	}
 
-	private static List<String> asList(String... patterns) {
-		return patterns != null ? Arrays.asList(patterns) : Collections.<String>emptyList();
-	}
 
-	private static Set<String> prependLeadingSlash(Collection<String> patterns) {
-		if (patterns == null) {
-			return Collections.emptySet();
-		}
-		Set<String> result = new LinkedHashSet<String>(patterns.size());
+	private static Set<String> prependLeadingSlash(Collection<String> patterns, PathMatcher pathMatcher) {
+		boolean slashSeparator = pathMatcher.combine("a", "a").equals("a/a");
+		Set<String> result = new LinkedHashSet<>(patterns.size());
 		for (String pattern : patterns) {
-			if (StringUtils.hasLength(pattern) && !pattern.startsWith("/")) {
-				pattern = "/" + pattern;
+			if (slashSeparator) {
+				if (StringUtils.hasLength(pattern) && !pattern.startsWith("/")) {
+					pattern = "/" + pattern;
+				}
 			}
 			result.add(pattern);
 		}
 		return result;
 	}
+
 
 	public Set<String> getPatterns() {
 		return this.patterns;
@@ -105,19 +102,20 @@ public final class DestinationPatternsMessageCondition
 		return " || ";
 	}
 
+
 	/**
 	 * Returns a new instance with URL patterns from the current instance ("this") and
 	 * the "other" instance as follows:
 	 * <ul>
-	 * 	<li>If there are patterns in both instances, combine the patterns in "this" with
-	 * 		the patterns in "other" using {@link org.springframework.util.PathMatcher#combine(String, String)}.
-	 * 	<li>If only one instance has patterns, use them.
-	 *  <li>If neither instance has patterns, use an empty String (i.e. "").
+	 * <li>If there are patterns in both instances, combine the patterns in "this" with
+	 * the patterns in "other" using {@link org.springframework.util.PathMatcher#combine(String, String)}.
+	 * <li>If only one instance has patterns, use them.
+	 * <li>If neither instance has patterns, use an empty String (i.e. "").
 	 * </ul>
 	 */
 	@Override
 	public DestinationPatternsMessageCondition combine(DestinationPatternsMessageCondition other) {
-		Set<String> result = new LinkedHashSet<String>();
+		Set<String> result = new LinkedHashSet<>();
 		if (!this.patterns.isEmpty() && !other.patterns.isEmpty()) {
 			for (String pattern1 : this.patterns) {
 				for (String pattern2 : other.patterns) {
@@ -157,8 +155,8 @@ public final class DestinationPatternsMessageCondition
 			return this;
 		}
 
-		List<String> matches = new ArrayList<String>();
-		for (String pattern : patterns) {
+		List<String> matches = new ArrayList<>();
+		for (String pattern : this.patterns) {
 			if (pattern.equals(destination) || this.pathMatcher.match(pattern, destination)) {
 				matches.add(pattern);
 			}
@@ -186,9 +184,12 @@ public final class DestinationPatternsMessageCondition
 	@Override
 	public int compareTo(DestinationPatternsMessageCondition other, Message<?> message) {
 		String destination = (String) message.getHeaders().get(LOOKUP_DESTINATION_HEADER);
+		if (destination == null) {
+			return 0;
+		}
 		Comparator<String> patternComparator = this.pathMatcher.getPatternComparator(destination);
 
-		Iterator<String> iterator = patterns.iterator();
+		Iterator<String> iterator = this.patterns.iterator();
 		Iterator<String> iteratorOther = other.patterns.iterator();
 		while (iterator.hasNext() && iteratorOther.hasNext()) {
 			int result = patternComparator.compare(iterator.next(), iteratorOther.next());

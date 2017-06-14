@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import java.io.InputStream;
 import java.io.NotSerializableException;
 import java.io.ObjectInputStream;
 import java.io.ObjectStreamClass;
-import java.lang.reflect.Proxy;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 
 /**
@@ -46,7 +46,7 @@ public class ConfigurableObjectInputStream extends ObjectInputStream {
 	 * @param classLoader the ClassLoader to use for loading local classes
 	 * @see java.io.ObjectInputStream#ObjectInputStream(java.io.InputStream)
 	 */
-	public ConfigurableObjectInputStream(InputStream in, ClassLoader classLoader) throws IOException {
+	public ConfigurableObjectInputStream(InputStream in, @Nullable ClassLoader classLoader) throws IOException {
 		this(in, classLoader, true);
 	}
 
@@ -59,7 +59,7 @@ public class ConfigurableObjectInputStream extends ObjectInputStream {
 	 * @see java.io.ObjectInputStream#ObjectInputStream(java.io.InputStream)
 	 */
 	public ConfigurableObjectInputStream(
-			InputStream in, ClassLoader classLoader, boolean acceptProxyClasses) throws IOException {
+			InputStream in, @Nullable ClassLoader classLoader, boolean acceptProxyClasses) throws IOException {
 
 		super(in);
 		this.classLoader = classLoader;
@@ -101,7 +101,7 @@ public class ConfigurableObjectInputStream extends ObjectInputStream {
 				}
 			}
 			try {
-				return Proxy.getProxyClass(this.classLoader, resolvedInterfaces);
+				return ClassUtils.createCompositeInterface(resolvedInterfaces, this.classLoader);
 			}
 			catch (IllegalArgumentException ex) {
 				throw new ClassNotFoundException(null, ex);
@@ -117,7 +117,7 @@ public class ConfigurableObjectInputStream extends ObjectInputStream {
 				for (int i = 0; i < interfaces.length; i++) {
 					resolvedInterfaces[i] = resolveFallbackIfPossible(interfaces[i], ex);
 				}
-				return Proxy.getProxyClass(getFallbackClassLoader(), resolvedInterfaces);
+				return ClassUtils.createCompositeInterface(resolvedInterfaces, getFallbackClassLoader());
 			}
 		}
 	}
@@ -139,9 +139,11 @@ public class ConfigurableObjectInputStream extends ObjectInputStream {
 
 	/**
 	 * Return the fallback ClassLoader to use when no ClassLoader was specified
-	 * and ObjectInputStream's own default ClassLoader failed.
-	 * <p>The default implementation simply returns {@code null}.
+	 * and ObjectInputStream's own default class loader failed.
+	 * <p>The default implementation simply returns {@code null}, indicating
+	 * that no specific fallback is available.
 	 */
+	@Nullable
 	protected ClassLoader getFallbackClassLoader() throws IOException {
 		return null;
 	}

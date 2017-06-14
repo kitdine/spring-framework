@@ -19,6 +19,7 @@ package org.springframework.core.env;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 
@@ -75,10 +76,10 @@ public abstract class PropertySource<T> {
 	}
 
 	/**
-	 * Create a new {@code PropertySource} with the given name and with a new {@code Object}
-	 * instance as the underlying source.
-	 * <p>Often useful in testing scenarios when creating anonymous implementations that
-	 * never query an actual source but rather return hard-coded values.
+	 * Create a new {@code PropertySource} with the given name and with a new
+	 * {@code Object} instance as the underlying source.
+	 * <p>Often useful in testing scenarios when creating anonymous implementations
+	 * that never query an actual source but rather return hard-coded values.
 	 */
 	@SuppressWarnings("unchecked")
 	public PropertySource(String name) {
@@ -117,6 +118,7 @@ public abstract class PropertySource<T> {
 	 * @param name the property to find
 	 * @see PropertyResolver#getRequiredProperty(String)
 	 */
+	@Nullable
 	public abstract Object getProperty(String name);
 
 

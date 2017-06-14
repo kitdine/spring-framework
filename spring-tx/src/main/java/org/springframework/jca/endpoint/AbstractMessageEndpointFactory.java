@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,11 +30,12 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import org.springframework.beans.factory.BeanNameAware;
+import org.springframework.lang.Nullable;
 import org.springframework.transaction.jta.SimpleTransactionFactory;
 import org.springframework.transaction.jta.TransactionFactory;
 
 /**
- * Abstract base implementation of the JCA 1.5/1.6/1.7
+ * Abstract base implementation of the JCA 1.7
  * {@link javax.resource.spi.endpoint.MessageEndpointFactory} interface,
  * providing transaction management capabilities as well as ClassLoader
  * exposure for endpoint invocations.
@@ -58,7 +59,7 @@ public abstract class AbstractMessageEndpointFactory implements MessageEndpointF
 
 
 	/**
-	 * Set the the XA transaction manager to use for wrapping endpoint
+	 * Set the XA transaction manager to use for wrapping endpoint
 	 * invocations, enlisting the endpoint resource in each such transaction.
 	 * <p>The passed-in object may be a transaction manager which implements
 	 * Spring's {@link org.springframework.transaction.jta.TransactionFactory}
@@ -134,8 +135,20 @@ public abstract class AbstractMessageEndpointFactory implements MessageEndpointF
 	 * returning the bean name as set on this MessageEndpointFactory.
 	 * @see #setBeanName
 	 */
+	@Override
+	@Nullable
 	public String getActivationName() {
 		return this.beanName;
+	}
+
+	/**
+	 * Implementation of the JCA 1.7 {@code #getEndpointClass()} method,
+	 * returning {@code} null in order to indicate a synthetic endpoint type.
+	 */
+	@Override
+	@Nullable
+	public Class<?> getEndpointClass() {
+		return null;
 	}
 
 	/**
@@ -166,6 +179,7 @@ public abstract class AbstractMessageEndpointFactory implements MessageEndpointF
 	 * <p>This implementation delegates to {@link #createEndpointInternal()},
 	 * ignoring the specified timeout. It is only here for JCA 1.6 compliance.
 	 */
+	@Override
 	public MessageEndpoint createEndpoint(XAResource xaResource, long timeout) throws UnavailableException {
 		AbstractMessageEndpoint endpoint = createEndpointInternal();
 		endpoint.initXAResource(xaResource);
@@ -205,14 +219,14 @@ public abstract class AbstractMessageEndpointFactory implements MessageEndpointF
 		 * This {@code beforeDelivery} implementation starts a transaction,
 		 * if necessary, and exposes the endpoint ClassLoader as current
 		 * thread context ClassLoader.
-		 * <p>Note that the JCA 1.5 specification does not require a ResourceAdapter
+		 * <p>Note that the JCA 1.7 specification does not require a ResourceAdapter
 		 * to call this method before invoking the concrete endpoint. If this method
 		 * has not been called (check {@link #hasBeforeDeliveryBeenCalled()}), the
 		 * concrete endpoint method should call {@code beforeDelivery} and its
 		 * sibling {@link #afterDelivery()} explicitly, as part of its own processing.
 		 */
 		@Override
-		public void beforeDelivery(Method method) throws ResourceException {
+		public void beforeDelivery(@Nullable Method method) throws ResourceException {
 			this.beforeDeliveryCalled = true;
 			try {
 				this.transactionDelegate.beginTransaction();
@@ -255,7 +269,7 @@ public abstract class AbstractMessageEndpointFactory implements MessageEndpointF
 		/**
 		 * This {@code afterDelivery} implementation resets the thread context
 		 * ClassLoader and completes the transaction, if any.
-		 * <p>Note that the JCA 1.5 specification does not require a ResourceAdapter
+		 * <p>Note that the JCA 1.7 specification does not require a ResourceAdapter
 		 * to call this method after invoking the concrete endpoint. See the
 		 * explanation in {@link #beforeDelivery}'s javadoc.
 		 */
@@ -297,7 +311,7 @@ public abstract class AbstractMessageEndpointFactory implements MessageEndpointF
 
 		private boolean rollbackOnly;
 
-		public TransactionDelegate(XAResource xaResource) {
+		public TransactionDelegate(@Nullable XAResource xaResource) {
 			if (xaResource == null) {
 				if (transactionFactory != null && !transactionFactory.supportsResourceAdapterManagedTransactions()) {
 					throw new IllegalStateException("ResourceAdapter-provided XAResource is required for " +

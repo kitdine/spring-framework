@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.MutablePropertyValues;
 import org.springframework.beans.PropertyValues;
 import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.lang.Nullable;
 import org.springframework.util.ReflectionUtils;
 
 /**
@@ -46,7 +47,7 @@ import org.springframework.util.ReflectionUtils;
  */
 public class InjectionMetadata {
 
-	private final Log logger = LogFactory.getLog(InjectionMetadata.class);
+	private static final Log logger = LogFactory.getLog(InjectionMetadata.class);
 
 	private final Class<?> targetClass;
 
@@ -60,8 +61,9 @@ public class InjectionMetadata {
 		this.injectedElements = elements;
 	}
 
+
 	public void checkConfigMembers(RootBeanDefinition beanDefinition) {
-		Set<InjectedElement> checkedElements = new LinkedHashSet<InjectedElement>(this.injectedElements.size());
+		Set<InjectedElement> checkedElements = new LinkedHashSet<>(this.injectedElements.size());
 		for (InjectedElement element : this.injectedElements) {
 			Member member = element.getMember();
 			if (!beanDefinition.isExternallyManagedConfigMember(member)) {
@@ -75,23 +77,36 @@ public class InjectionMetadata {
 		this.checkedElements = checkedElements;
 	}
 
-	public void inject(Object target, String beanName, PropertyValues pvs) throws Throwable {
+	public void inject(Object target, @Nullable String beanName, @Nullable PropertyValues pvs) throws Throwable {
 		Collection<InjectedElement> elementsToIterate =
 				(this.checkedElements != null ? this.checkedElements : this.injectedElements);
 		if (!elementsToIterate.isEmpty()) {
 			boolean debug = logger.isDebugEnabled();
 			for (InjectedElement element : elementsToIterate) {
 				if (debug) {
-					logger.debug("Processing injected method of bean '" + beanName + "': " + element);
+					logger.debug("Processing injected element of bean '" + beanName + "': " + element);
 				}
 				element.inject(target, beanName, pvs);
 			}
 		}
 	}
 
+	/**
+	 * @since 3.2.13
+	 */
+	public void clear(@Nullable PropertyValues pvs) {
+		Collection<InjectedElement> elementsToIterate =
+				(this.checkedElements != null ? this.checkedElements : this.injectedElements);
+		if (!elementsToIterate.isEmpty()) {
+			for (InjectedElement element : elementsToIterate) {
+				element.clearPropertySkipping(pvs);
+			}
+		}
+	}
 
-	public static boolean needsRefresh(InjectionMetadata metadata, Class<?> clazz) {
-		return (metadata == null || !metadata.targetClass.equals(clazz));
+
+	public static boolean needsRefresh(@Nullable InjectionMetadata metadata, Class<?> clazz) {
+		return (metadata == null || metadata.targetClass != clazz);
 	}
 
 
@@ -105,7 +120,7 @@ public class InjectionMetadata {
 
 		protected volatile Boolean skip;
 
-		protected InjectedElement(Member member, PropertyDescriptor pd) {
+		protected InjectedElement(Member member, @Nullable PropertyDescriptor pd) {
 			this.member = member;
 			this.isField = (member instanceof Field);
 			this.pd = pd;
@@ -148,7 +163,9 @@ public class InjectionMetadata {
 		/**
 		 * Either this or {@link #getResourceToInject} needs to be overridden.
 		 */
-		protected void inject(Object target, String requestingBeanName, PropertyValues pvs) throws Throwable {
+		protected void inject(Object target, @Nullable String requestingBeanName, @Nullable PropertyValues pvs)
+				throws Throwable {
+
 			if (this.isField) {
 				Field field = (Field) this.member;
 				ReflectionUtils.makeAccessible(field);
@@ -170,11 +187,11 @@ public class InjectionMetadata {
 		}
 
 		/**
-		 * Checks whether this injector's property needs to be skipped due to
+		 * Check whether this injector's property needs to be skipped due to
 		 * an explicit property value having been specified. Also marks the
 		 * affected property as processed for other processors to ignore it.
 		 */
-		protected boolean checkPropertySkipping(PropertyValues pvs) {
+		protected boolean checkPropertySkipping(@Nullable PropertyValues pvs) {
 			if (this.skip != null) {
 				return this.skip;
 			}
@@ -202,9 +219,24 @@ public class InjectionMetadata {
 		}
 
 		/**
+		 * @since 3.2.13
+		 */
+		protected void clearPropertySkipping(@Nullable PropertyValues pvs) {
+			if (pvs == null) {
+				return;
+			}
+			synchronized (pvs) {
+				if (Boolean.FALSE.equals(this.skip) && this.pd != null && pvs instanceof MutablePropertyValues) {
+					((MutablePropertyValues) pvs).clearProcessedProperty(this.pd.getName());
+				}
+			}
+		}
+
+		/**
 		 * Either this or {@link #inject} needs to be overridden.
 		 */
-		protected Object getResourceToInject(Object target, String requestingBeanName) {
+		@Nullable
+		protected Object getResourceToInject(Object target, @Nullable String requestingBeanName) {
 			return null;
 		}
 

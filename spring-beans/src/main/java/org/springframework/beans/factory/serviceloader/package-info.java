@@ -1,8 +1,7 @@
-
 /**
- *
- * Support package for the JDK 1.6 ServiceLoader facility.
- *
+ * Support package for the Java 6 ServiceLoader facility.
  */
+@NonNullApi
 package org.springframework.beans.factory.serviceloader;
 
+import org.springframework.lang.NonNullApi;

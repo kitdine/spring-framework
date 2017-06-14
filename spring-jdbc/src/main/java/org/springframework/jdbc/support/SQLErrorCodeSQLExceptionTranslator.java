@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import org.springframework.dao.PermissionDeniedDataAccessException;
 import org.springframework.dao.TransientDataAccessResourceException;
 import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.InvalidResultSetAccessException;
+import org.springframework.lang.Nullable;
 
 /**
  * Implementation of {@link SQLExceptionTranslator} that analyzes vendor-specific error codes.
@@ -295,7 +296,8 @@ public class SQLErrorCodeSQLExceptionTranslator extends AbstractFallbackSQLExcep
 	 * as a nested root cause. This implementation always returns null, meaning that
 	 * the translator always falls back to the default error codes.
 	 */
-	protected DataAccessException customTranslate(String task, String sql, SQLException sqlEx) {
+	@Nullable
+	protected DataAccessException customTranslate(String task, @Nullable String sql, SQLException sqlEx) {
 		return null;
 	}
 
@@ -312,8 +314,9 @@ public class SQLErrorCodeSQLExceptionTranslator extends AbstractFallbackSQLExcep
 	 * sqlEx parameter as a nested root cause.
 	 * @see CustomSQLErrorCodesTranslation#setExceptionClass
 	 */
+	@Nullable
 	protected DataAccessException createCustomException(
-			String task, String sql, SQLException sqlEx, Class<?> exceptionClass) {
+			String task, @Nullable String sql, SQLException sqlEx, Class<?> exceptionClass) {
 
 		// find appropriate constructor
 		try {
@@ -321,27 +324,27 @@ public class SQLErrorCodeSQLExceptionTranslator extends AbstractFallbackSQLExcep
 			Constructor<?>[] constructors = exceptionClass.getConstructors();
 			for (Constructor<?> constructor : constructors) {
 				Class<?>[] parameterTypes = constructor.getParameterTypes();
-				if (parameterTypes.length == 1 && parameterTypes[0].equals(String.class)) {
+				if (parameterTypes.length == 1 && String.class == parameterTypes[0]) {
 					if (constructorType < MESSAGE_ONLY_CONSTRUCTOR)
 						constructorType = MESSAGE_ONLY_CONSTRUCTOR;
 				}
-				if (parameterTypes.length == 2 && parameterTypes[0].equals(String.class) &&
-						parameterTypes[1].equals(Throwable.class)) {
+				if (parameterTypes.length == 2 && String.class == parameterTypes[0] &&
+						Throwable.class == parameterTypes[1]) {
 					if (constructorType < MESSAGE_THROWABLE_CONSTRUCTOR)
 						constructorType = MESSAGE_THROWABLE_CONSTRUCTOR;
 				}
-				if (parameterTypes.length == 2 && parameterTypes[0].equals(String.class) &&
-						parameterTypes[1].equals(SQLException.class)) {
+				if (parameterTypes.length == 2 && String.class == parameterTypes[0] &&
+						SQLException.class == parameterTypes[1]) {
 					if (constructorType < MESSAGE_SQLEX_CONSTRUCTOR)
 						constructorType = MESSAGE_SQLEX_CONSTRUCTOR;
 				}
-				if (parameterTypes.length == 3 && parameterTypes[0].equals(String.class) &&
-						parameterTypes[1].equals(String.class) && parameterTypes[2].equals(Throwable.class)) {
+				if (parameterTypes.length == 3 && String.class == parameterTypes[0] &&
+						String.class == parameterTypes[1] && Throwable.class == parameterTypes[2]) {
 					if (constructorType < MESSAGE_SQL_THROWABLE_CONSTRUCTOR)
 						constructorType = MESSAGE_SQL_THROWABLE_CONSTRUCTOR;
 				}
-				if (parameterTypes.length == 3 && parameterTypes[0].equals(String.class) &&
-						parameterTypes[1].equals(String.class) && parameterTypes[2].equals(SQLException.class)) {
+				if (parameterTypes.length == 3 && String.class == parameterTypes[0] &&
+						String.class == parameterTypes[1] && SQLException.class == parameterTypes[2]) {
 					if (constructorType < MESSAGE_SQL_SQLEX_CONSTRUCTOR)
 						constructorType = MESSAGE_SQL_SQLEX_CONSTRUCTOR;
 				}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
+import org.springframework.lang.Nullable;
 
 /**
  * Interface specifying a basic set of JDBC operations.
@@ -59,6 +60,7 @@ public interface JdbcOperations {
 	 * @return a result object returned by the action, or {@code null}
 	 * @throws DataAccessException if there is any problem
 	 */
+	@Nullable
 	<T> T execute(ConnectionCallback<T> action) throws DataAccessException;
 
 
@@ -78,6 +80,7 @@ public interface JdbcOperations {
 	 * @return a result object returned by the action, or {@code null}
 	 * @throws DataAccessException if there is any problem
 	 */
+	@Nullable
 	<T> T execute(StatementCallback<T> action) throws DataAccessException;
 
 	/**
@@ -99,6 +102,7 @@ public interface JdbcOperations {
 	 * @throws DataAccessException if there is any problem executing the query
 	 * @see #query(String, Object[], ResultSetExtractor)
 	 */
+	@Nullable
 	<T> T query(String sql, ResultSetExtractor<T> rse) throws DataAccessException;
 
 	/**
@@ -162,6 +166,7 @@ public interface JdbcOperations {
 	 * @throws DataAccessException if there is any problem executing the query
 	 * @see #queryForObject(String, Object[], Class)
 	 */
+	@Nullable
 	<T> T queryForObject(String sql, Class<T> requiredType) throws DataAccessException;
 
 	/**
@@ -182,44 +187,6 @@ public interface JdbcOperations {
 	 * @see ColumnMapRowMapper
 	 */
 	Map<String, Object> queryForMap(String sql) throws DataAccessException;
-
-	/**
-	 * Execute a query that results in a long value, given static SQL.
-	 * <p>Uses a JDBC Statement, not a PreparedStatement. If you want to
-	 * execute a static query with a PreparedStatement, use the overloaded
-	 * {@code queryForLong} method with {@code null} as argument array.
-	 * <p>This method is useful for running static SQL with a known outcome.
-	 * The query is expected to be a single row/single column query that results
-	 * in a long value.
-	 * @param sql SQL query to execute
-	 * @return the long value, or 0 in case of SQL NULL
-	 * @throws IncorrectResultSizeDataAccessException if the query does not return
-	 * exactly one row, or does not return exactly one column in that row
-	 * @throws DataAccessException if there is any problem executing the query
-	 * @see #queryForLong(String, Object[])
-	 * @deprecated in favor of {@link #queryForObject(String, Class)}
-	 */
-	@Deprecated
-	long queryForLong(String sql) throws DataAccessException;
-
-	/**
-	 * Execute a query that results in an int value, given static SQL.
-	 * <p>Uses a JDBC Statement, not a PreparedStatement. If you want to
-	 * execute a static query with a PreparedStatement, use the overloaded
-	 * {@code queryForInt} method with {@code null} as argument array.
-	 * <p>This method is useful for running static SQL with a known outcome.
-	 * The query is expected to be a single row/single column query that results
-	 * in an int value.
-	 * @param sql SQL query to execute
-	 * @return the int value, or 0 in case of SQL NULL
-	 * @throws IncorrectResultSizeDataAccessException if the query does not return
-	 * exactly one row, or does not return exactly one column in that row
-	 * @throws DataAccessException if there is any problem executing the query
-	 * @see #queryForInt(String, Object[])
-	 * @deprecated in favor of {@link #queryForObject(String, Class)}
-	 */
-	@Deprecated
-	int queryForInt(String sql) throws DataAccessException;
 
 	/**
 	 * Execute a query for a result list, given static SQL.
@@ -261,7 +228,7 @@ public interface JdbcOperations {
 	 * {@code queryForRowSet} method with {@code null} as argument array.
 	 * <p>The results will be mapped to an SqlRowSet which holds the data in a
 	 * disconnected fashion. This wrapper will translate any SQLExceptions thrown.
-	 * <p>Note that that, for the default implementation, JDBC RowSet support needs to
+	 * <p>Note that, for the default implementation, JDBC RowSet support needs to
 	 * be available at runtime: by default, Sun's {@code com.sun.rowset.CachedRowSetImpl}
 	 * class is used, which is part of JDK 1.5+ and also available separately as part of
 	 * Sun's JDBC RowSet Implementations download (rowset.jar).
@@ -291,7 +258,7 @@ public interface JdbcOperations {
 	 * @return an array of the number of rows affected by each statement
 	 * @throws DataAccessException if there is any problem executing the batch
 	 */
-	int[] batchUpdate(String[] sql) throws DataAccessException;
+	int[] batchUpdate(String... sql) throws DataAccessException;
 
 
 	//-------------------------------------------------------------------------
@@ -311,6 +278,7 @@ public interface JdbcOperations {
 	 * @return a result object returned by the action, or {@code null}
 	 * @throws DataAccessException if there is any problem
 	 */
+	@Nullable
 	<T> T execute(PreparedStatementCreator psc, PreparedStatementCallback<T> action) throws DataAccessException;
 
 	/**
@@ -326,6 +294,7 @@ public interface JdbcOperations {
 	 * @return a result object returned by the action, or {@code null}
 	 * @throws DataAccessException if there is any problem
 	 */
+	@Nullable
 	<T> T execute(String sql, PreparedStatementCallback<T> action) throws DataAccessException;
 
 	/**
@@ -339,6 +308,7 @@ public interface JdbcOperations {
 	 * @throws DataAccessException if there is any problem
 	 * @see PreparedStatementCreatorFactory
 	 */
+	@Nullable
 	<T> T query(PreparedStatementCreator psc, ResultSetExtractor<T> rse) throws DataAccessException;
 
 	/**
@@ -353,7 +323,8 @@ public interface JdbcOperations {
 	 * @return an arbitrary result object, as returned by the ResultSetExtractor
 	 * @throws DataAccessException if there is any problem
 	 */
-	<T> T query(String sql, PreparedStatementSetter pss, ResultSetExtractor<T> rse) throws DataAccessException;
+	@Nullable
+	<T> T query(String sql, @Nullable PreparedStatementSetter pss, ResultSetExtractor<T> rse) throws DataAccessException;
 
 	/**
 	 * Query given SQL to create a prepared statement from SQL and a list
@@ -368,6 +339,7 @@ public interface JdbcOperations {
 	 * @throws DataAccessException if the query fails
 	 * @see java.sql.Types
 	 */
+	@Nullable
 	<T> T query(String sql, Object[] args, int[] argTypes, ResultSetExtractor<T> rse) throws DataAccessException;
 
 	/**
@@ -383,6 +355,7 @@ public interface JdbcOperations {
 	 * @return an arbitrary result object, as returned by the ResultSetExtractor
 	 * @throws DataAccessException if the query fails
 	 */
+	@Nullable
 	<T> T query(String sql, Object[] args, ResultSetExtractor<T> rse) throws DataAccessException;
 
 	/**
@@ -398,7 +371,8 @@ public interface JdbcOperations {
 	 * @return an arbitrary result object, as returned by the ResultSetExtractor
 	 * @throws DataAccessException if the query fails
 	 */
-	<T> T query(String sql, ResultSetExtractor<T> rse, Object... args) throws DataAccessException;
+	@Nullable
+	<T> T query(String sql, ResultSetExtractor<T> rse, @Nullable Object... args) throws DataAccessException;
 
 	/**
 	 * Query using a prepared statement, reading the ResultSet on a per-row
@@ -425,7 +399,7 @@ public interface JdbcOperations {
 	 * @param rch object that will extract results, one row at a time
 	 * @throws DataAccessException if the query fails
 	 */
-	void query(String sql, PreparedStatementSetter pss, RowCallbackHandler rch) throws DataAccessException;
+	void query(String sql, @Nullable PreparedStatementSetter pss, RowCallbackHandler rch) throws DataAccessException;
 
 	/**
 	 * Query given SQL to create a prepared statement from SQL and a list of
@@ -467,7 +441,7 @@ public interface JdbcOperations {
 	 * only the argument value but also the SQL type and optionally the scale
 	 * @throws DataAccessException if the query fails
 	 */
-	void query(String sql, RowCallbackHandler rch, Object... args) throws DataAccessException;
+	void query(String sql, RowCallbackHandler rch, @Nullable Object... args) throws DataAccessException;
 
 	/**
 	 * Query using a prepared statement, mapping each row to a Java object
@@ -495,7 +469,7 @@ public interface JdbcOperations {
 	 * @return the result List, containing mapped objects
 	 * @throws DataAccessException if the query fails
 	 */
-	<T> List<T> query(String sql, PreparedStatementSetter pss, RowMapper<T> rowMapper) throws DataAccessException;
+	<T> List<T> query(String sql, @Nullable PreparedStatementSetter pss, RowMapper<T> rowMapper) throws DataAccessException;
 
 	/**
 	 * Query given SQL to create a prepared statement from SQL and a list
@@ -540,7 +514,7 @@ public interface JdbcOperations {
 	 * @return the result List, containing mapped objects
 	 * @throws DataAccessException if the query fails
 	 */
-	<T> List<T> query(String sql, RowMapper<T> rowMapper, Object... args) throws DataAccessException;
+	<T> List<T> query(String sql, RowMapper<T> rowMapper, @Nullable Object... args) throws DataAccessException;
 
 	/**
 	 * Query given SQL to create a prepared statement from SQL and a list
@@ -592,7 +566,7 @@ public interface JdbcOperations {
 	 * return exactly one row
 	 * @throws DataAccessException if the query fails
 	 */
-	<T> T queryForObject(String sql, RowMapper<T> rowMapper, Object... args) throws DataAccessException;
+	<T> T queryForObject(String sql, RowMapper<T> rowMapper, @Nullable Object... args) throws DataAccessException;
 
 	/**
 	 * Query given SQL to create a prepared statement from SQL and a
@@ -611,6 +585,7 @@ public interface JdbcOperations {
 	 * @see #queryForObject(String, Class)
 	 * @see java.sql.Types
 	 */
+	@Nullable
 	<T> T queryForObject(String sql, Object[] args, int[] argTypes, Class<T> requiredType)
 			throws DataAccessException;
 
@@ -631,6 +606,7 @@ public interface JdbcOperations {
 	 * @throws DataAccessException if the query fails
 	 * @see #queryForObject(String, Class)
 	 */
+	@Nullable
 	<T> T queryForObject(String sql, Object[] args, Class<T> requiredType) throws DataAccessException;
 
 	/**
@@ -650,7 +626,8 @@ public interface JdbcOperations {
 	 * @throws DataAccessException if the query fails
 	 * @see #queryForObject(String, Class)
 	 */
-	<T> T queryForObject(String sql, Class<T> requiredType, Object... args) throws DataAccessException;
+	@Nullable
+	<T> T queryForObject(String sql, Class<T> requiredType, @Nullable Object... args) throws DataAccessException;
 
 	/**
 	 * Query given SQL to create a prepared statement from SQL and a
@@ -693,87 +670,7 @@ public interface JdbcOperations {
 	 * @see #queryForMap(String)
 	 * @see ColumnMapRowMapper
 	 */
-	Map<String, Object> queryForMap(String sql, Object... args) throws DataAccessException;
-
-	/**
-	 * Query given SQL to create a prepared statement from SQL and a
-	 * list of arguments to bind to the query, resulting in a long value.
-	 * <p>The query is expected to be a single row/single column query that
-	 * results in a long value.
-	 * @param sql SQL query to execute
-	 * @param args arguments to bind to the query
-	 * @param argTypes SQL types of the arguments
-	 * (constants from {@code java.sql.Types})
-	 * @return the long value, or 0 in case of SQL NULL
-	 * @throws IncorrectResultSizeDataAccessException if the query does not return
-	 * exactly one row, or does not return exactly one column in that row
-	 * @throws DataAccessException if the query fails
-	 * @see #queryForLong(String)
-	 * @see java.sql.Types
-	 * @deprecated in favor of {@link #queryForObject(String, Object[], int[], Class)} )}
-	 */
-	@Deprecated
-	long queryForLong(String sql, Object[] args, int[] argTypes) throws DataAccessException;
-
-	/**
-	 * Query given SQL to create a prepared statement from SQL and a
-	 * list of arguments to bind to the query, resulting in a long value.
-	 * <p>The query is expected to be a single row/single column query that
-	 * results in a long value.
-	 * @param sql SQL query to execute
-	 * @param args arguments to bind to the query
-	 * (leaving it to the PreparedStatement to guess the corresponding SQL type);
-	 * may also contain {@link SqlParameterValue} objects which indicate not
-	 * only the argument value but also the SQL type and optionally the scale
-	 * @return the long value, or 0 in case of SQL NULL
-	 * @throws IncorrectResultSizeDataAccessException if the query does not return
-	 * exactly one row, or does not return exactly one column in that row
-	 * @throws DataAccessException if the query fails
-	 * @see #queryForLong(String)
-	 * @deprecated in favor of {@link #queryForObject(String, Class, Object[])} )}
-	 */
-	@Deprecated
-	long queryForLong(String sql, Object... args) throws DataAccessException;
-
-	/**
-	 * Query given SQL to create a prepared statement from SQL and a
-	 * list of arguments to bind to the query, resulting in an int value.
-	 * <p>The query is expected to be a single row/single column query that
-	 * results in an int value.
-	 * @param sql SQL query to execute
-	 * @param args arguments to bind to the query
-	 * @param argTypes SQL types of the arguments
-	 * (constants from {@code java.sql.Types})
-	 * @return the int value, or 0 in case of SQL NULL
-	 * @throws IncorrectResultSizeDataAccessException if the query does not return
-	 * exactly one row, or does not return exactly one column in that row
-	 * @throws DataAccessException if the query fails
-	 * @see #queryForInt(String)
-	 * @see java.sql.Types
-	 * @deprecated in favor of {@link #queryForObject(String, Object[], int[], Class)} )}
-	 */
-	@Deprecated
-	int queryForInt(String sql, Object[] args, int[] argTypes) throws DataAccessException;
-
-	/**
-	 * Query given SQL to create a prepared statement from SQL and a
-	 * list of arguments to bind to the query, resulting in an int value.
-	 * <p>The query is expected to be a single row/single column query that
-	 * results in an int value.
-	 * @param sql SQL query to execute
-	 * @param args arguments to bind to the query
-	 * (leaving it to the PreparedStatement to guess the corresponding SQL type);
-	 * may also contain {@link SqlParameterValue} objects which indicate not
-	 * only the argument value but also the SQL type and optionally the scale
-	 * @return the int value, or 0 in case of SQL NULL
-	 * @throws IncorrectResultSizeDataAccessException if the query does not return
-	 * exactly one row, or does not return exactly one column in that row
-	 * @throws DataAccessException if the query fails
-	 * @see #queryForInt(String)
-	 * @deprecated in favor of {@link #queryForObject(String, Class, Object[])} )}
-	 */
-	@Deprecated
-	int queryForInt(String sql, Object... args) throws DataAccessException;
+	Map<String, Object> queryForMap(String sql, @Nullable Object... args) throws DataAccessException;
 
 	/**
 	 * Query given SQL to create a prepared statement from SQL and a
@@ -830,7 +727,7 @@ public interface JdbcOperations {
 	 * @see #queryForList(String, Class)
 	 * @see SingleColumnRowMapper
 	 */
-	<T> List<T> queryForList(String sql, Class<T> elementType, Object... args) throws DataAccessException;
+	<T> List<T> queryForList(String sql, Class<T> elementType, @Nullable Object... args) throws DataAccessException;
 
 	/**
 	 * Query given SQL to create a prepared statement from SQL and a
@@ -866,14 +763,14 @@ public interface JdbcOperations {
 	 * @throws DataAccessException if the query fails
 	 * @see #queryForList(String)
 	 */
-	List<Map<String, Object>> queryForList(String sql, Object... args) throws DataAccessException;
+	List<Map<String, Object>> queryForList(String sql, @Nullable Object... args) throws DataAccessException;
 
 	/**
 	 * Query given SQL to create a prepared statement from SQL and a
 	 * list of arguments to bind to the query, expecting a SqlRowSet.
 	 * <p>The results will be mapped to an SqlRowSet which holds the data in a
 	 * disconnected fashion. This wrapper will translate any SQLExceptions thrown.
-	 * <p>Note that that, for the default implementation, JDBC RowSet support needs to
+	 * <p>Note that, for the default implementation, JDBC RowSet support needs to
 	 * be available at runtime: by default, Sun's {@code com.sun.rowset.CachedRowSetImpl}
 	 * class is used, which is part of JDK 1.5+ and also available separately as part of
 	 * Sun's JDBC RowSet Implementations download (rowset.jar).
@@ -896,7 +793,7 @@ public interface JdbcOperations {
 	 * list of arguments to bind to the query, expecting a SqlRowSet.
 	 * <p>The results will be mapped to an SqlRowSet which holds the data in a
 	 * disconnected fashion. This wrapper will translate any SQLExceptions thrown.
-	 * <p>Note that that, for the default implementation, JDBC RowSet support needs to
+	 * <p>Note that, for the default implementation, JDBC RowSet support needs to
 	 * be available at runtime: by default, Sun's {@code com.sun.rowset.CachedRowSetImpl}
 	 * class is used, which is part of JDK 1.5+ and also available separately as part of
 	 * Sun's JDBC RowSet Implementations download (rowset.jar).
@@ -912,7 +809,7 @@ public interface JdbcOperations {
 	 * @see SqlRowSetResultSetExtractor
 	 * @see javax.sql.rowset.CachedRowSet
 	 */
-	SqlRowSet queryForRowSet(String sql, Object... args) throws DataAccessException;
+	SqlRowSet queryForRowSet(String sql, @Nullable Object... args) throws DataAccessException;
 
 	/**
 	 * Issue a single SQL update operation (such as an insert, update or delete statement)
@@ -952,7 +849,7 @@ public interface JdbcOperations {
 	 * @return the number of rows affected
 	 * @throws DataAccessException if there is any problem issuing the update
 	 */
-	int update(String sql, PreparedStatementSetter pss) throws DataAccessException;
+	int update(String sql, @Nullable PreparedStatementSetter pss) throws DataAccessException;
 
 	/**
 	 * Issue a single SQL update operation (such as an insert, update or delete statement)
@@ -978,7 +875,7 @@ public interface JdbcOperations {
 	 * @return the number of rows affected
 	 * @throws DataAccessException if there is any problem issuing the update
 	 */
-	int update(String sql, Object... args) throws DataAccessException;
+	int update(String sql, @Nullable Object... args) throws DataAccessException;
 
 	/**
 	 * Issue multiple update statements on a single PreparedStatement,
@@ -1044,6 +941,7 @@ public interface JdbcOperations {
 	 * @return a result object returned by the action, or {@code null}
 	 * @throws DataAccessException if there is any problem
 	 */
+	@Nullable
 	<T> T execute(CallableStatementCreator csc, CallableStatementCallback<T> action) throws DataAccessException;
 
 	/**
@@ -1059,6 +957,7 @@ public interface JdbcOperations {
 	 * @return a result object returned by the action, or {@code null}
 	 * @throws DataAccessException if there is any problem
 	 */
+	@Nullable
 	<T> T execute(String callString, CallableStatementCallback<T> action) throws DataAccessException;
 
 	/**

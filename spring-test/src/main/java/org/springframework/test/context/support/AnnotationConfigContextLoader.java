@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.test.context.support;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
 import org.springframework.beans.factory.support.BeanDefinitionReader;
 import org.springframework.context.annotation.AnnotatedBeanDefinitionReader;
 import org.springframework.context.support.GenericApplicationContext;
@@ -49,6 +50,8 @@ import org.springframework.util.ObjectUtils;
  * @see #processContextConfiguration(ContextConfigurationAttributes)
  * @see #detectDefaultConfigurationClasses(Class)
  * @see #loadBeanDefinitions(GenericApplicationContext, MergedContextConfiguration)
+ * @see GenericXmlContextLoader
+ * @see GenericGroovyXmlContextLoader
  */
 public class AnnotationConfigContextLoader extends AbstractGenericContextLoader {
 

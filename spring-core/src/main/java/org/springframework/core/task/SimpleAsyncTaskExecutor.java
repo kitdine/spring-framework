@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.ThreadFactory;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ConcurrencyThrottleSupport;
 import org.springframework.util.CustomizableThreadCreator;
@@ -65,6 +66,8 @@ public class SimpleAsyncTaskExecutor extends CustomizableThreadCreator implement
 
 	private ThreadFactory threadFactory;
 
+	private TaskDecorator taskDecorator;
+
 
 	/**
 	 * Create a new SimpleAsyncTaskExecutor with default thread name prefix.
@@ -105,8 +108,23 @@ public class SimpleAsyncTaskExecutor extends CustomizableThreadCreator implement
 	/**
 	 * Return the external factory to use for creating new Threads, if any.
 	 */
+	@Nullable
 	public final ThreadFactory getThreadFactory() {
 		return this.threadFactory;
+	}
+
+	/**
+	 * Specify a custom {@link TaskDecorator} to be applied to any {@link Runnable}
+	 * about to be executed.
+	 * <p>Note that such a decorator is not necessarily being applied to the
+	 * user-supplied {@code Runnable}/{@code Callable} but rather to the actual
+	 * execution callback (which may be a wrapper around the user-supplied task).
+	 * <p>The primary use case is to set some execution context around the task's
+	 * invocation, or to provide some monitoring/statistics for task execution.
+	 * @since 4.3
+	 */
+	public final void setTaskDecorator(TaskDecorator taskDecorator) {
+		this.taskDecorator = taskDecorator;
 	}
 
 	/**
@@ -163,39 +181,40 @@ public class SimpleAsyncTaskExecutor extends CustomizableThreadCreator implement
 	@Override
 	public void execute(Runnable task, long startTimeout) {
 		Assert.notNull(task, "Runnable must not be null");
+		Runnable taskToUse = (this.taskDecorator != null ? this.taskDecorator.decorate(task) : task);
 		if (isThrottleActive() && startTimeout > TIMEOUT_IMMEDIATE) {
 			this.concurrencyThrottle.beforeAccess();
-			doExecute(new ConcurrencyThrottlingRunnable(task));
+			doExecute(new ConcurrencyThrottlingRunnable(taskToUse));
 		}
 		else {
-			doExecute(task);
+			doExecute(taskToUse);
 		}
 	}
 
 	@Override
 	public Future<?> submit(Runnable task) {
-		FutureTask<Object> future = new FutureTask<Object>(task, null);
+		FutureTask<Object> future = new FutureTask<>(task, null);
 		execute(future, TIMEOUT_INDEFINITE);
 		return future;
 	}
 
 	@Override
 	public <T> Future<T> submit(Callable<T> task) {
-		FutureTask<T> future = new FutureTask<T>(task);
+		FutureTask<T> future = new FutureTask<>(task);
 		execute(future, TIMEOUT_INDEFINITE);
 		return future;
 	}
 
 	@Override
 	public ListenableFuture<?> submitListenable(Runnable task) {
-		ListenableFutureTask<Object> future = new ListenableFutureTask<Object>(task, null);
+		ListenableFutureTask<Object> future = new ListenableFutureTask<>(task, null);
 		execute(future, TIMEOUT_INDEFINITE);
 		return future;
 	}
 
 	@Override
 	public <T> ListenableFuture<T> submitListenable(Callable<T> task) {
-		ListenableFutureTask<T> future = new ListenableFutureTask<T>(task);
+		ListenableFutureTask<T> future = new ListenableFutureTask<>(task);
 		execute(future, TIMEOUT_INDEFINITE);
 		return future;
 	}

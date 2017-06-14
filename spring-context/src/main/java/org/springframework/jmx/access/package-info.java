@@ -1,8 +1,7 @@
-
 /**
- *
- * Provides support for accessing remote MBean resources. Requires JMX 1.2 or above.
- *
+ * Provides support for accessing remote MBean resources.
  */
+@NonNullApi
 package org.springframework.jmx.access;
 
+import org.springframework.lang.NonNullApi;

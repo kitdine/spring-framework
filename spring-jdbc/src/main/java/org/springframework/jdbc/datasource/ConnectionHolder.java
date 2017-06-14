@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Savepoint;
 
+import org.springframework.lang.Nullable;
 import org.springframework.transaction.support.ResourceHolderSupport;
 import org.springframework.util.Assert;
 
@@ -125,7 +126,7 @@ public class ConnectionHolder extends ResourceHolderSupport {
 	 * <p>Used for releasing the Connection on suspend (with a {@code null}
 	 * argument) and setting a fresh Connection on resume.
 	 */
-	protected void setConnection(Connection connection) {
+	protected void setConnection(@Nullable Connection connection) {
 		if (this.currentConnection != null) {
 			this.connectionHandle.releaseConnection(this.currentConnection);
 			this.currentConnection = null;
@@ -161,9 +162,9 @@ public class ConnectionHolder extends ResourceHolderSupport {
 	 */
 	public boolean supportsSavepoints() throws SQLException {
 		if (this.savepointsSupported == null) {
-			this.savepointsSupported = new Boolean(getConnection().getMetaData().supportsSavepoints());
+			this.savepointsSupported = getConnection().getMetaData().supportsSavepoints();
 		}
-		return this.savepointsSupported.booleanValue();
+		return this.savepointsSupported;
 	}
 
 	/**
@@ -182,9 +183,7 @@ public class ConnectionHolder extends ResourceHolderSupport {
 	 * <p>This is necessary for ConnectionHandles that expect "Connection borrowing",
 	 * where each returned Connection is only temporarily leased and needs to be
 	 * returned once the data operation is done, to make the Connection available
-	 * for other operations within the same transaction. This is the case with
-	 * JDO 2.0 DataStoreConnections, for example.
-	 * @see org.springframework.orm.jdo.DefaultJdoDialect#getJdbcConnection
+	 * for other operations within the same transaction.
 	 */
 	@Override
 	public void released() {

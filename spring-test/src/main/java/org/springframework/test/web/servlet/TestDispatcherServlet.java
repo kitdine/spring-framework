@@ -18,15 +18,19 @@ package org.springframework.test.web.servlet;
 
 import java.io.IOException;
 import java.util.concurrent.Callable;
-
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.springframework.lang.Nullable;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.request.NativeWebRequest;
-import org.springframework.web.context.request.async.*;
+import org.springframework.web.context.request.async.CallableProcessingInterceptorAdapter;
+import org.springframework.web.context.request.async.DeferredResult;
+import org.springframework.web.context.request.async.DeferredResultProcessingInterceptorAdapter;
+import org.springframework.web.context.request.async.WebAsyncManager;
+import org.springframework.web.context.request.async.WebAsyncUtils;
 import org.springframework.web.servlet.DispatcherServlet;
 import org.springframework.web.servlet.HandlerExecutionChain;
 import org.springframework.web.servlet.ModelAndView;
@@ -104,7 +108,7 @@ final class TestDispatcherServlet extends DispatcherServlet {
 
 	@Override
 	protected ModelAndView processHandlerException(HttpServletRequest request, HttpServletResponse response,
-			Object handler, Exception ex) throws Exception {
+			@Nullable Object handler, Exception ex) throws Exception {
 
 		ModelAndView mav = super.processHandlerException(request, response, handler, ex);
 

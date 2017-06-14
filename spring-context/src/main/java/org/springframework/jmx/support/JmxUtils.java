@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,10 +22,10 @@ import java.lang.reflect.Method;
 import java.util.Hashtable;
 import java.util.List;
 import javax.management.DynamicMBean;
+import javax.management.JMX;
 import javax.management.MBeanParameterInfo;
 import javax.management.MBeanServer;
 import javax.management.MBeanServerFactory;
-import javax.management.MXBean;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
@@ -33,6 +33,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import org.springframework.jmx.MBeanServerNotFoundException;
+import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
@@ -59,16 +60,6 @@ public abstract class JmxUtils {
 	 */
 	private static final String MBEAN_SUFFIX = "MBean";
 
-	/**
-	 * Suffix used to identify a Java 6 MXBean interface.
-	 */
-	private static final String MXBEAN_SUFFIX = "MXBean";
-
-	private static final String MXBEAN_ANNOTATION_CLASS_NAME = "javax.management.MXBean";
-
-
-	private static final boolean mxBeanAnnotationAvailable =
-			ClassUtils.isPresent(MXBEAN_ANNOTATION_CLASS_NAME, JmxUtils.class.getClassLoader());
 
 	private static final Log logger = LogFactory.getLog(JmxUtils.class);
 
@@ -98,7 +89,7 @@ public abstract class JmxUtils {
 	 * if no {@code MBeanServer} could be found
 	 * @see javax.management.MBeanServerFactory#findMBeanServer(String)
 	 */
-	public static MBeanServer locateMBeanServer(String agentId) throws MBeanServerNotFoundException {
+	public static MBeanServer locateMBeanServer(@Nullable String agentId) throws MBeanServerNotFoundException {
 		MBeanServer server = null;
 
 		// null means any registered server, but "" specifically means the platform server
@@ -145,7 +136,10 @@ public abstract class JmxUtils {
 	 * @return the parameter types as classes
 	 * @throws ClassNotFoundException if a parameter type could not be resolved
 	 */
-	public static Class<?>[] parameterInfoToTypes(MBeanParameterInfo[] paramInfo) throws ClassNotFoundException {
+	@Nullable
+	public static Class<?>[] parameterInfoToTypes(@Nullable MBeanParameterInfo[] paramInfo)
+			throws ClassNotFoundException {
+
 		return parameterInfoToTypes(paramInfo, ClassUtils.getDefaultClassLoader());
 	}
 
@@ -157,7 +151,9 @@ public abstract class JmxUtils {
 	 * @return the parameter types as classes
 	 * @throws ClassNotFoundException if a parameter type could not be resolved
 	 */
-	public static Class<?>[] parameterInfoToTypes(MBeanParameterInfo[] paramInfo, ClassLoader classLoader)
+	@Nullable
+	public static Class<?>[] parameterInfoToTypes(
+			@Nullable MBeanParameterInfo[] paramInfo, @Nullable ClassLoader classLoader)
 			throws ClassNotFoundException {
 
 		Class<?>[] types = null;
@@ -264,7 +260,7 @@ public abstract class JmxUtils {
 	 * @return whether the class qualifies as an MBean
 	 * @see org.springframework.jmx.export.MBeanExporter#isMBean(Class)
 	 */
-	public static boolean isMBean(Class<?> clazz) {
+	public static boolean isMBean(@Nullable Class<?> clazz) {
 		return (clazz != null &&
 				(DynamicMBean.class.isAssignableFrom(clazz) ||
 						(getMBeanInterface(clazz) != null || getMXBeanInterface(clazz) != null)));
@@ -277,7 +273,8 @@ public abstract class JmxUtils {
 	 * @param clazz the class to check
 	 * @return the Standard MBean interface for the given class
 	 */
-	public static Class<?> getMBeanInterface(Class<?> clazz) {
+	@Nullable
+	public static Class<?> getMBeanInterface(@Nullable Class<?> clazz) {
 		if (clazz == null || clazz.getSuperclass() == null) {
 			return null;
 		}
@@ -298,45 +295,18 @@ public abstract class JmxUtils {
 	 * @param clazz the class to check
 	 * @return whether there is an MXBean interface for the given class
 	 */
-	public static Class<?> getMXBeanInterface(Class<?> clazz) {
+	@Nullable
+	public static Class<?> getMXBeanInterface(@Nullable Class<?> clazz) {
 		if (clazz == null || clazz.getSuperclass() == null) {
 			return null;
 		}
 		Class<?>[] implementedInterfaces = clazz.getInterfaces();
 		for (Class<?> iface : implementedInterfaces) {
-			boolean isMxBean = iface.getName().endsWith(MXBEAN_SUFFIX);
-			if (mxBeanAnnotationAvailable) {
-				Boolean checkResult = MXBeanChecker.evaluateMXBeanAnnotation(iface);
-				if (checkResult != null) {
-					isMxBean = checkResult;
-				}
-			}
-			if (isMxBean) {
+			if (JMX.isMXBeanInterface(iface)) {
 				return iface;
 			}
 		}
 		return getMXBeanInterface(clazz.getSuperclass());
-	}
-
-	/**
-	 * Check whether MXBean support is available, i.e. whether we're running
-	 * on Java 6 or above.
-	 * @return {@code true} if available; {@code false} otherwise
-	 */
-	public static boolean isMXBeanSupportAvailable() {
-		return mxBeanAnnotationAvailable;
-	}
-
-
-	/**
-	 * Inner class to avoid a Java 6 dependency.
-	 */
-	private static class MXBeanChecker {
-
-		public static Boolean evaluateMXBeanAnnotation(Class<?> iface) {
-			MXBean mxBean = iface.getAnnotation(MXBean.class);
-			return (mxBean != null ? mxBean.value() : null);
-		}
 	}
 
 }

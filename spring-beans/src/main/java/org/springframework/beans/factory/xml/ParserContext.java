@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2009 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.springframework.beans.factory.parsing.ComponentDefinition;
 import org.springframework.beans.factory.parsing.CompositeComponentDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionReaderUtils;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.lang.Nullable;
 
 /**
  * Context that gets passed along a bean definition parsing process,
@@ -44,7 +45,7 @@ public final class ParserContext {
 
 	private BeanDefinition containingBeanDefinition;
 
-	private final Stack<ComponentDefinition> containingComponents = new Stack<ComponentDefinition>();
+	private final Stack<ComponentDefinition> containingComponents = new Stack<>();
 
 
 	public ParserContext(XmlReaderContext readerContext, BeanDefinitionParserDelegate delegate) {
@@ -53,7 +54,7 @@ public final class ParserContext {
 	}
 
 	public ParserContext(XmlReaderContext readerContext, BeanDefinitionParserDelegate delegate,
-			BeanDefinition containingBeanDefinition) {
+			@Nullable BeanDefinition containingBeanDefinition) {
 
 		this.readerContext = readerContext;
 		this.delegate = delegate;
@@ -85,6 +86,7 @@ public final class ParserContext {
 		return BeanDefinitionParserDelegate.TRUE_VALUE.equals(this.delegate.getDefaults().getLazyInit());
 	}
 
+	@Nullable
 	public Object extractSource(Object sourceCandidate) {
 		return this.readerContext.extractSource(sourceCandidate);
 	}

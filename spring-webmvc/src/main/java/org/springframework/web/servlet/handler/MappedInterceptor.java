@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,34 @@
 
 package org.springframework.web.servlet.handler;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.lang.Nullable;
+import org.springframework.util.ObjectUtils;
 import org.springframework.util.PathMatcher;
 import org.springframework.web.context.request.WebRequestInterceptor;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.ModelAndView;
 
 /**
- * Holds information about a HandlerInterceptor mapped to a path into the application.
- * Provides a method to match a request path to the mapped path patterns.
+ * Contains and delegates calls to a {@link HandlerInterceptor} along with
+ * include (and optionally exclude) path patterns to which the interceptor should apply.
+ * Also provides matching logic to test if the interceptor applies to a given request path.
+ *
+ * <p>A MappedInterceptor can be registered directly with any
+ * {@link org.springframework.web.servlet.handler.AbstractHandlerMethodMapping
+ * AbstractHandlerMethodMapping}. Furthermore, beans of type MappedInterceptor
+ * are automatically detected by {@code AbstractHandlerMethodMapping} (including
+ * ancestor ApplicationContext's) which effectively means the interceptor is
+ * registered "globally" with all handler mappings.
  *
  * @author Keith Donald
  * @author Rossen Stoyanchev
+ * @author Brian Clozel
  * @since 3.0
  */
-public final class MappedInterceptor {
+public final class MappedInterceptor implements HandlerInterceptor {
 
 	private final String[] includePatterns;
 
@@ -44,7 +59,7 @@ public final class MappedInterceptor {
 	 * @param includePatterns the path patterns to map with a {@code null} value matching to all paths
 	 * @param interceptor the HandlerInterceptor instance to map to the given patterns
 	 */
-	public MappedInterceptor(String[] includePatterns, HandlerInterceptor interceptor) {
+	public MappedInterceptor(@Nullable String[] includePatterns, HandlerInterceptor interceptor) {
 		this(includePatterns, null, interceptor);
 	}
 
@@ -54,7 +69,9 @@ public final class MappedInterceptor {
 	 * @param excludePatterns the path patterns to exclude
 	 * @param interceptor the HandlerInterceptor instance to map to the given patterns
 	 */
-	public MappedInterceptor(String[] includePatterns, String[] excludePatterns, HandlerInterceptor interceptor) {
+	public MappedInterceptor(@Nullable String[] includePatterns, @Nullable String[] excludePatterns,
+			HandlerInterceptor interceptor) {
+
 		this.includePatterns = includePatterns;
 		this.excludePatterns = excludePatterns;
 		this.interceptor = interceptor;
@@ -66,7 +83,7 @@ public final class MappedInterceptor {
 	 * @param includePatterns the path patterns to map with a {@code null} value matching to all paths
 	 * @param interceptor the WebRequestInterceptor instance to map to the given patterns
 	 */
-	public MappedInterceptor(String[] includePatterns, WebRequestInterceptor interceptor) {
+	public MappedInterceptor(@Nullable String[] includePatterns, WebRequestInterceptor interceptor) {
 		this(includePatterns, null, interceptor);
 	}
 
@@ -75,7 +92,9 @@ public final class MappedInterceptor {
 	 * @param includePatterns the path patterns to map with a {@code null} value matching to all paths
 	 * @param interceptor the WebRequestInterceptor instance to map to the given patterns
 	 */
-	public MappedInterceptor(String[] includePatterns, String[] excludePatterns, WebRequestInterceptor interceptor) {
+	public MappedInterceptor(@Nullable String[] includePatterns, @Nullable String[] excludePatterns,
+			WebRequestInterceptor interceptor) {
+
 		this(includePatterns, excludePatterns, new WebRequestHandlerInterceptorAdapter(interceptor));
 	}
 
@@ -86,16 +105,15 @@ public final class MappedInterceptor {
 	 * method. This is an advanced property that is only required when using custom
 	 * PathMatcher implementations that support mapping metadata other than the
 	 * Ant-style path patterns supported by default.
-	 *
-	 * @param pathMatcher the path matcher to use
 	 */
 	public void setPathMatcher(PathMatcher pathMatcher) {
 		this.pathMatcher = pathMatcher;
 	}
 
 	/**
-	 * The configured PathMatcher, or {@code null}.
+	 * The configured PathMatcher, or {@code null} if none.
 	 */
+	@Nullable
 	public PathMatcher getPathMatcher() {
 		return this.pathMatcher;
 	}
@@ -103,6 +121,7 @@ public final class MappedInterceptor {
 	/**
 	 * The path into the application the interceptor is mapped to.
 	 */
+	@Nullable
 	public String[] getPathPatterns() {
 		return this.includePatterns;
 	}
@@ -112,6 +131,27 @@ public final class MappedInterceptor {
 	 */
 	public HandlerInterceptor getInterceptor() {
 		return this.interceptor;
+	}
+
+	@Override
+	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+		return this.interceptor.preHandle(request, response, handler);
+	}
+
+	@Override
+	public void postHandle(
+			HttpServletRequest request, HttpServletResponse response, Object handler, @Nullable ModelAndView modelAndView)
+			throws Exception {
+
+		this.interceptor.postHandle(request, response, handler, modelAndView);
+	}
+
+	@Override
+	public void afterCompletion(
+			HttpServletRequest request, HttpServletResponse response, Object handler, @Nullable Exception ex)
+			throws Exception {
+
+		this.interceptor.afterCompletion(request, response, handler, ex);
 	}
 
 	/**
@@ -128,7 +168,7 @@ public final class MappedInterceptor {
 				}
 			}
 		}
-		if (this.includePatterns == null) {
+		if (ObjectUtils.isEmpty(this.includePatterns)) {
 			return true;
 		}
 		else {

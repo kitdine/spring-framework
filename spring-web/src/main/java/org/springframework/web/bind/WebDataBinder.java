@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,14 @@
 package org.springframework.web.bind;
 
 import java.lang.reflect.Array;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.MutablePropertyValues;
 import org.springframework.beans.PropertyValue;
+import org.springframework.core.CollectionFactory;
+import org.springframework.lang.Nullable;
 import org.springframework.validation.DataBinder;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -40,6 +43,7 @@ import org.springframework.web.multipart.MultipartFile;
  *
  * @author Juergen Hoeller
  * @author Scott Andrews
+ * @author Brian Clozel
  * @since 1.2
  * @see #registerCustomEditor
  * @see #setAllowedFields
@@ -84,7 +88,7 @@ public class WebDataBinder extends DataBinder {
 	 * if the binder is just used to convert a plain parameter value)
 	 * @see #DEFAULT_OBJECT_NAME
 	 */
-	public WebDataBinder(Object target) {
+	public WebDataBinder(@Nullable Object target) {
 		super(target);
 	}
 
@@ -94,7 +98,7 @@ public class WebDataBinder extends DataBinder {
 	 * if the binder is just used to convert a plain parameter value)
 	 * @param objectName the name of the target object
 	 */
-	public WebDataBinder(Object target, String objectName) {
+	public WebDataBinder(@Nullable Object target, @Nullable String objectName) {
 		super(target, objectName);
 	}
 
@@ -127,6 +131,7 @@ public class WebDataBinder extends DataBinder {
 	/**
 	 * Return the prefix for parameters that mark potentially empty fields.
 	 */
+	@Nullable
 	public String getFieldMarkerPrefix() {
 		return this.fieldMarkerPrefix;
 	}
@@ -152,6 +157,7 @@ public class WebDataBinder extends DataBinder {
 	/**
 	 * Return the prefix for parameters that mark default fields.
 	 */
+	@Nullable
 	public String getFieldDefaultPrefix() {
 		return this.fieldDefaultPrefix;
 	}
@@ -243,26 +249,42 @@ public class WebDataBinder extends DataBinder {
 
 	/**
 	 * Determine an empty value for the specified field.
-	 * <p>Default implementation returns {@code Boolean.FALSE}
-	 * for boolean fields and an empty array of array types.
-	 * Else, {@code null} is used as default.
+	 * <p>Default implementation returns:
+	 * <ul>
+	 * <li>{@code Boolean.FALSE} for boolean fields
+	 * <li>an empty array for array types
+	 * <li>Collection implementations for Collection types
+	 * <li>Map implementations for Map types
+	 * <li>else, {@code null} is used as default
+	 * </ul>
 	 * @param field the name of the field
 	 * @param fieldType the type of the field
 	 * @return the empty value (for most fields: null)
 	 */
-	protected Object getEmptyValue(String field, Class<?> fieldType) {
-		if (fieldType != null && boolean.class.equals(fieldType) || Boolean.class.equals(fieldType)) {
-			// Special handling of boolean property.
-			return Boolean.FALSE;
+	@Nullable
+	protected Object getEmptyValue(String field, @Nullable Class<?> fieldType) {
+		if (fieldType != null) {
+			try {
+				if (boolean.class == fieldType || Boolean.class == fieldType) {
+					// Special handling of boolean property.
+					return Boolean.FALSE;
+				}
+				else if (fieldType.isArray()) {
+					// Special handling of array property.
+					return Array.newInstance(fieldType.getComponentType(), 0);
+				}
+				else if (Collection.class.isAssignableFrom(fieldType)) {
+					return CollectionFactory.createCollection(fieldType, 0);
+				}
+				else if (Map.class.isAssignableFrom(fieldType)) {
+					return CollectionFactory.createMap(fieldType, 0);
+				}
+			} catch (IllegalArgumentException exc) {
+				return null;
+			}
 		}
-		else if (fieldType != null && fieldType.isArray()) {
-			// Special handling of array property.
-			return Array.newInstance(fieldType.getComponentType(), 0);
-		}
-		else {
-			// Default value: try null.
-			return null;
-		}
+		// Default value: try null.
+		return null;
 	}
 
 	/**

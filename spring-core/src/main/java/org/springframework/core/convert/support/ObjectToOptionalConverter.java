@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,7 +23,7 @@ import java.util.Set;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.TypeDescriptor;
 import org.springframework.core.convert.converter.ConditionalGenericConverter;
-import org.springframework.lang.UsesJava8;
+import org.springframework.lang.Nullable;
 
 /**
  * Convert an Object to {@code java.util.Optional<T>} if necessary using the
@@ -31,9 +31,9 @@ import org.springframework.lang.UsesJava8;
  * of Optional when known.
  *
  * @author Rossen Stoyanchev
+ * @author Juergen Hoeller
  * @since 4.1
  */
-@UsesJava8
 final class ObjectToOptionalConverter implements ConditionalGenericConverter {
 
 	private final ConversionService conversionService;
@@ -43,6 +43,7 @@ final class ObjectToOptionalConverter implements ConditionalGenericConverter {
 		this.conversionService = conversionService;
 	}
 
+
 	@Override
 	public Set<ConvertiblePair> getConvertibleTypes() {
 		return Collections.singleton(new ConvertiblePair(Object.class, Optional.class));
@@ -50,7 +51,7 @@ final class ObjectToOptionalConverter implements ConditionalGenericConverter {
 
 	@Override
 	public boolean matches(TypeDescriptor sourceType, TypeDescriptor targetType) {
-		if (targetType.getResolvableType() != null) {
+		if (targetType.getResolvableType().hasGenerics()) {
 			return this.conversionService.canConvert(sourceType, new GenericTypeDescriptor(targetType));
 		}
 		else {
@@ -59,16 +60,20 @@ final class ObjectToOptionalConverter implements ConditionalGenericConverter {
 	}
 
 	@Override
-	public Object convert(Object source, TypeDescriptor sourceType, TypeDescriptor targetType) {
+	@Nullable
+	public Object convert(@Nullable Object source, TypeDescriptor sourceType, TypeDescriptor targetType) {
 		if (source == null) {
 			return Optional.empty();
 		}
-		if (targetType.getResolvableType() == null) {
-			return Optional.of(source);
+		else if (source instanceof Optional) {
+			return source;
+		}
+		else if (targetType.getResolvableType().hasGenerics()) {
+			Object target = this.conversionService.convert(source, sourceType, new GenericTypeDescriptor(targetType));
+			return Optional.ofNullable(target);
 		}
 		else {
-			Object target = this.conversionService.convert(source, sourceType, new GenericTypeDescriptor(targetType));
-			return Optional.of(target);
+			return Optional.of(source);
 		}
 	}
 
@@ -77,7 +82,7 @@ final class ObjectToOptionalConverter implements ConditionalGenericConverter {
 	private static class GenericTypeDescriptor extends TypeDescriptor {
 
 		public GenericTypeDescriptor(TypeDescriptor typeDescriptor) {
-			super(typeDescriptor.getResolvableType().getGeneric(0), null, typeDescriptor.getAnnotations());
+			super(typeDescriptor.getResolvableType().getGeneric(), null, typeDescriptor.getAnnotations());
 		}
 	}
 
